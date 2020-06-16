@@ -31,8 +31,7 @@ compress arbitrary R objects, you must first convert into a raw
 vector representation using `base::serialize()`.
 
 For a more general solution to fast serialization of R objects, see the 
-[fst](https://github.com/fstpackage/fst) package, which offers multi-threading
-and support for most standard R object types.
+[fst](https://github.com/fstpackage/fst) or [qs](https://cran.r-project.org/package=qs) packages.
 
 Currently lz4 code provided with this package is v1.9.3.
 
@@ -112,7 +111,6 @@ lens <- c(
 
 ```{r}
 library(lz4lite)
-library(fst)
 
 res <- bench::mark(
   lz4_compress(input_ints, acc   =   1),
@@ -219,6 +217,8 @@ returned by `lz4_decompress()` can only be a simple vector.
 * [lz4](https://github.com/lz4/lz4) and [zstd](https://github.com/facebook/zstd) - both by Yann Collet
 * [fst](https://github.com/fstpackage/fst) for serialisation of data.frames using
   lz4 and zstd
+* [qs](https://cran.r-project.org/package=qs) for fast serialization of arbitrary R objects
+  with lz4 and zstd
 
 ## Acknowledgements
 

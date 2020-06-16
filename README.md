@@ -17,8 +17,8 @@ values. If you wanted to compress arbitrary R objects, you must first
 convert into a raw vector representation using `base::serialize()`.
 
 For a more general solution to fast serialization of R objects, see the
-[fst](https://github.com/fstpackage/fst) package, which offers
-multi-threading and support for most standard R object types.
+[fst](https://github.com/fstpackage/fst) or
+[qs](https://cran.r-project.org/package=qs) packages.
 
 Currently lz4 code provided with this package is v1.9.3.
 
@@ -81,7 +81,6 @@ compressed_hi <- lz4_compress(input_ints, use_hc = TRUE, hc_level = 12)
 
 ``` r
 library(lz4lite)
-library(fst)
 
 res <- bench::mark(
   lz4_compress(input_ints, acc   =   1),
@@ -100,18 +99,18 @@ res <- bench::mark(
 
 </details>
 
-| expression                                                 |  median | itr/sec |  MB/s | compression\_ratio |
-| :--------------------------------------------------------- | ------: | ------: | ----: | -----------------: |
-| lz4\_compress(input\_ints, acc = 1)                        |  6.38ms |     157 | 598.3 |              0.306 |
-| lz4\_compress(input\_ints, acc = 10)                       |  6.32ms |     158 | 604.0 |              0.306 |
-| lz4\_compress(input\_ints, acc = 20)                       |  6.34ms |     159 | 601.2 |              0.306 |
-| lz4\_compress(input\_ints, acc = 50)                       |  6.29ms |     158 | 606.7 |              0.306 |
-| lz4\_compress(input\_ints, acc = 100)                      |  6.25ms |     159 | 610.5 |              0.306 |
-| lz4\_compress(input\_ints, use\_hc = TRUE, hc\_level = 1)  | 35.38ms |      28 | 107.8 |              0.294 |
-| lz4\_compress(input\_ints, use\_hc = TRUE, hc\_level = 2)  | 35.09ms |      28 | 108.7 |              0.294 |
-| lz4\_compress(input\_ints, use\_hc = TRUE, hc\_level = 4)  | 68.16ms |      15 |  56.0 |              0.233 |
-| lz4\_compress(input\_ints, use\_hc = TRUE, hc\_level = 8)  |   454ms |       2 |   8.4 |              0.167 |
-| lz4\_compress(input\_ints, use\_hc = TRUE, hc\_level = 12) |  11.52s |       0 |   0.3 |              0.122 |
+| expression                                                 |   median | itr/sec |  MB/s | compression\_ratio |
+| :--------------------------------------------------------- | -------: | ------: | ----: | -----------------: |
+| lz4\_compress(input\_ints, acc = 1)                        |   6.43ms |     149 | 593.2 |              0.306 |
+| lz4\_compress(input\_ints, acc = 10)                       |   6.21ms |     162 | 614.4 |              0.306 |
+| lz4\_compress(input\_ints, acc = 20)                       |   6.39ms |     153 | 596.7 |              0.306 |
+| lz4\_compress(input\_ints, acc = 50)                       |   6.16ms |     163 | 619.1 |              0.306 |
+| lz4\_compress(input\_ints, acc = 100)                      |   6.21ms |     162 | 614.4 |              0.306 |
+| lz4\_compress(input\_ints, use\_hc = TRUE, hc\_level = 1)  |  34.06ms |      29 | 112.0 |              0.294 |
+| lz4\_compress(input\_ints, use\_hc = TRUE, hc\_level = 2)  |  33.97ms |      29 | 112.3 |              0.294 |
+| lz4\_compress(input\_ints, use\_hc = TRUE, hc\_level = 4)  |  66.28ms |      15 |  57.6 |              0.233 |
+| lz4\_compress(input\_ints, use\_hc = TRUE, hc\_level = 8)  | 445.04ms |       2 |   8.6 |              0.167 |
+| lz4\_compress(input\_ints, use\_hc = TRUE, hc\_level = 12) |   11.28s |       0 |   0.3 |              0.122 |
 
 ### Decompressing 1 million integers
 
@@ -132,8 +131,8 @@ res <- bench::mark(
 
 | expression                      | median | itr/sec |   MB/s |
 | :------------------------------ | -----: | ------: | -----: |
-| lz4\_decompress(compressed\_lo) | 1.65ms |     570 | 2311.6 |
-| lz4\_decompress(compressed\_hi) | 1.23ms |     756 | 3109.5 |
+| lz4\_decompress(compressed\_lo) | 1.56ms |     608 | 2439.8 |
+| lz4\_decompress(compressed\_hi) | 1.18ms |     830 | 3220.9 |
 
 ## Technical bits
 
@@ -181,6 +180,8 @@ object returned by `lz4_decompress()` can only be a simple vector.
     [zstd](https://github.com/facebook/zstd) - both by Yann Collet
   - [fst](https://github.com/fstpackage/fst) for serialisation of
     data.frames using lz4 and zstd
+  - [qs](https://cran.r-project.org/package=qs) for fast serialization
+    of arbitrary R objects with lz4 and zstd
 
 ## Acknowledgements
 
