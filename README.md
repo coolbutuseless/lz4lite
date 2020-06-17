@@ -12,9 +12,12 @@
 [lz4](https://github.com/lz4/lz4) for performing in-memory compression.
 
 The scope of this package is limited - it aims to provide functions for
-direct hashing of vectors which contain raw, integer, real or logical
-values. If you wanted to compress arbitrary R objects, you must first
-convert into a raw vector representation using `base::serialize()`.
+direct hashing of vectors which contain raw, integer, real, complex or
+logical values. It does this by operating on the data payload within the
+vectors, and gains signficant speed by not serializing the R object
+itselsf. If you wanted to compress arbitrary R objects, you must first
+manually convert into a raw vector representation using
+`base::serialize()`.
 
 For a more general solution to fast serialization of R objects, see the
 [fst](https://github.com/fstpackage/fst) or
@@ -32,15 +35,15 @@ and not the R object itself.
   - As it is the *data payload* of the vector that is being compressed,
     this does not include any notion of the container for that data i.e
     dimensions or other attributes are not compressed with the data.
-  - Values must be of type: raw, integer, real or logical.
+  - Values must be of type: raw, integer, real, complex or logical.
   - Decompressed values are always returned as a vector i.e. all
     dimensional information is lost during compression.
 
 ### What’s in the box
 
   - `lz4compress()`
-      - compress the data within a vector of raw, integer, real or
-        logical values
+      - compress the data within a vector of raw, integer, real, complex
+        or logical values
       - set `use_hc = TRUE` to use the High Compression variant of LZ4.
         This variant can be slow to compress, but with higher
         compression ratios, and it retains the fast decompression speed
@@ -60,8 +63,8 @@ remotes::install_github('coolbutuseless/lz4lite)
 
 ## Compressing 1 million Integers
 
-`lz4lite` supports the direct compression of raw, integer, real and
-logical vectors.
+`lz4lite` supports the direct compression of raw, integer, real, complex
+and logical vectors.
 
 On this test data, compression speed is \~600 MB/s, and decompression
 speed is \~3GB/s
@@ -99,18 +102,18 @@ res <- bench::mark(
 
 </details>
 
-| expression                                                 |   median | itr/sec |  MB/s | compression\_ratio |
-| :--------------------------------------------------------- | -------: | ------: | ----: | -----------------: |
-| lz4\_compress(input\_ints, acc = 1)                        |   6.43ms |     149 | 593.2 |              0.306 |
-| lz4\_compress(input\_ints, acc = 10)                       |   6.21ms |     162 | 614.4 |              0.306 |
-| lz4\_compress(input\_ints, acc = 20)                       |   6.39ms |     153 | 596.7 |              0.306 |
-| lz4\_compress(input\_ints, acc = 50)                       |   6.16ms |     163 | 619.1 |              0.306 |
-| lz4\_compress(input\_ints, acc = 100)                      |   6.21ms |     162 | 614.4 |              0.306 |
-| lz4\_compress(input\_ints, use\_hc = TRUE, hc\_level = 1)  |  34.06ms |      29 | 112.0 |              0.294 |
-| lz4\_compress(input\_ints, use\_hc = TRUE, hc\_level = 2)  |  33.97ms |      29 | 112.3 |              0.294 |
-| lz4\_compress(input\_ints, use\_hc = TRUE, hc\_level = 4)  |  66.28ms |      15 |  57.6 |              0.233 |
-| lz4\_compress(input\_ints, use\_hc = TRUE, hc\_level = 8)  | 445.04ms |       2 |   8.6 |              0.167 |
-| lz4\_compress(input\_ints, use\_hc = TRUE, hc\_level = 12) |   11.28s |       0 |   0.3 |              0.122 |
+| expression                                                 |  median | itr/sec |  MB/s | compression\_ratio |
+| :--------------------------------------------------------- | ------: | ------: | ----: | -----------------: |
+| lz4\_compress(input\_ints, acc = 1)                        |  6.27ms |     159 | 608.8 |              0.306 |
+| lz4\_compress(input\_ints, acc = 10)                       |  6.22ms |     160 | 613.5 |              0.306 |
+| lz4\_compress(input\_ints, acc = 20)                       |  6.15ms |     162 | 620.2 |              0.306 |
+| lz4\_compress(input\_ints, acc = 50)                       |  6.18ms |     162 | 616.8 |              0.306 |
+| lz4\_compress(input\_ints, acc = 100)                      |  6.07ms |     164 | 628.5 |              0.306 |
+| lz4\_compress(input\_ints, use\_hc = TRUE, hc\_level = 1)  | 33.77ms |      30 | 113.0 |              0.294 |
+| lz4\_compress(input\_ints, use\_hc = TRUE, hc\_level = 2)  | 33.45ms |      30 | 114.0 |              0.294 |
+| lz4\_compress(input\_ints, use\_hc = TRUE, hc\_level = 4)  | 65.64ms |      15 |  58.1 |              0.233 |
+| lz4\_compress(input\_ints, use\_hc = TRUE, hc\_level = 8)  | 440.8ms |       2 |   8.7 |              0.167 |
+| lz4\_compress(input\_ints, use\_hc = TRUE, hc\_level = 12) |  11.09s |       0 |   0.3 |              0.123 |
 
 ### Decompressing 1 million integers
 
@@ -131,29 +134,47 @@ res <- bench::mark(
 
 | expression                      | median | itr/sec |   MB/s |
 | :------------------------------ | -----: | ------: | -----: |
-| lz4\_decompress(compressed\_lo) | 1.56ms |     608 | 2439.8 |
-| lz4\_decompress(compressed\_hi) | 1.18ms |     830 | 3220.9 |
+| lz4\_decompress(compressed\_lo) | 1.59ms |     595 | 2398.4 |
+| lz4\_decompress(compressed\_hi) |  1.2ms |     806 | 3176.6 |
 
 ## Technical bits
+
+### Why only vectors of raw, integer, real, complex or logical?
+
+R objects can be considered to consist of:
+
+  - a header - giving information like length and information for the
+    garbage collector
+  - a body - data of some kind.
+
+The vectors supported by `lz4lite` are those vectors whose body consists
+of data that is directly interpretable as a contiguous sequence of bytes
+representing numerical values.
+
+Other R objects (like lists or character vectors) are really collections
+of pointers to other objects, and do not live in memory as a contiguous
+sequence of byte data.
 
 ### How it works.
 
 ##### Compression
 
-1.  Given a pointer to a standard numeric vector from R, an *SEXP*
-2.  Ignoring any attributes or dimensions, compress the data payload
-    within the object.
+1.  Given a pointer to a standard numeric vector from R (i.e. an *SEXP*
+    pointer).
+2.  Ignore any attributes or dimension information- just compress the
+    data payload within the object.
 3.  Prefix the compressed data with an 8 byte header giving size and
-    SEXP type
+    SEXP type.
 4.  Return a raw vector to the user containing the compressed bytes.
 
 ##### Decompression
 
-1.  Strip off the header information
-2.  Feed the raw bytes in to the C LZ4 decompression function
-3.  Use the header to decide what sort of R object this is
-4.  Uncompress the data into an R object of the correct type.
-5.  Return the R object to the user
+1.  Strip off the 8-bytes of header information.
+2.  Feed the other bytes in to the LZ4 decompression function written in
+    C
+3.  Use the header to decide what sort of R object this is.
+4.  Decompress the data into an R object of the correct type.
+5.  Return the R object to the user.
 
 **Note:** matrices and arrays may also be passed to `lz4_compress()`,
 but since no attributes are retained (e.g. dims), the uncompressed

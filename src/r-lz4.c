@@ -52,19 +52,22 @@ SEXP lz4_compress_(SEXP src_, SEXP acceleration_, SEXP compressionLevel_, SEXP H
   int mult;
   char *src;
 
-  /* Get a proper pointer to the data, and adjust 'srcSize' for the given datatype */
+  /* Get a pointer to the data */
+  src = (char *)DATAPTR(src_);
+
+ /* adjust 'srcSize' for the given datatype */
   switch(sexp_type) {
   case LGLSXP:
   case INTSXP:
-    src = (char *)INTEGER(src_);
     srcSize *= 4;
     break;
   case REALSXP:
-    src = (char *)REAL(src_);
     srcSize *= 8;
     break;
+  case CPLXSXP:
+    srcSize *= 16;
+    break;
   case RAWSXP:
-    src = (char *)RAW(src_);
     break;
   default:
     error("compress() cannot handles SEXP type: %i\n", sexp_type);
@@ -171,6 +174,10 @@ SEXP lz4_decompress_(SEXP src_) {
   case RAWSXP:
     dst_ = PROTECT(allocVector(RAWSXP, dstCapacity));
     dst = (char *)RAW(dst_);
+    break;
+  case CPLXSXP:
+    dst_ = PROTECT(allocVector(CPLXSXP, dstCapacity/16));
+    dst = (char *)COMPLEX(dst_);
     break;
   default:
     error("decompress() cannot handles SEXP type: %i\n", sexp_type);

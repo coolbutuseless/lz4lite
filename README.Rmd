@@ -26,8 +26,10 @@ library(lz4lite)
 for performing in-memory compression.
 
 The scope of this package is limited - it aims to provide functions for direct hashing of vectors
-which contain raw, integer, real or logical values.   If you wanted to 
-compress arbitrary R objects, you must first convert into a raw
+which contain raw, integer, real, complex or logical values.  It does this by operating on the
+data payload within the vectors, and gains signficant speed by not serializing the R object
+itselsf.  If you wanted to 
+compress arbitrary R objects, you must first manually convert into a raw
 vector representation using `base::serialize()`.
 
 For a more general solution to fast serialization of R objects, see the 
@@ -46,7 +48,7 @@ R object itself.
 * As it is the *data payload* of the vector that is being compressed, this
   does not include any notion of the container for that data i.e
   dimensions or other attributes are not compressed with the data.
-* Values must be of type: raw, integer, real or logical.
+* Values must be of type: raw, integer, real, complex or logical.
 * Decompressed values are always returned as a vector i.e. all dimensional 
   information is lost during compression.
 
@@ -54,7 +56,7 @@ R object itself.
 ### What's in the box
 
 * `lz4compress()` 
-    - compress the data within a vector of  raw, integer, real or logical values
+    - compress the data within a vector of  raw, integer, real, complex or logical values
     - set `use_hc = TRUE` to use the High Compression variant of LZ4. This
       variant can be slow to compress, but with higher compression ratios, 
       and it retains the fast decompression speed i.e. multiple gigabytes per second!
@@ -75,7 +77,7 @@ remotes::install_github('coolbutuseless/lz4lite)
 
 ## Compressing 1 million Integers
 
-`lz4lite` supports the direct compression of raw, integer, real and logical vectors.
+`lz4lite` supports the direct compression of raw, integer, real, complex and logical vectors.
 
 On this test data, compression speed is ~600 MB/s, and decompression speed is ~3GB/s
 
@@ -167,23 +169,37 @@ res %>%
 
 ## Technical bits
 
+### Why only vectors of raw, integer, real, complex or logical?
+
+R objects can be considered to consist of: 
+
+* a header - giving information like length and information for the garbage collector
+* a body - data of some kind.
+
+The vectors supported by `lz4lite` are those vectors whose body consists of 
+data that is directly interpretable as a contiguous sequence of bytes representing 
+numerical values.
+
+Other R objects (like lists or character vectors) are really collections of pointers 
+to other objects, and do not live in memory as a contiguous sequence of byte data.
+
 ### How it works.
 
 ##### Compression
 
-1. Given a pointer to a standard numeric vector from R, an *SEXP*
-2. Ignoring any attributes or dimensions, compress the data payload within 
+1. Given a pointer to a standard numeric vector from R (i.e. an *SEXP* pointer).
+2. Ignore any attributes or dimension information- just compress the data payload within 
    the object.
-3. Prefix the compressed data with an 8 byte header giving size and SEXP type
+3. Prefix the compressed data with an 8 byte header giving size and SEXP type.
 4. Return a raw vector to the user containing the compressed bytes.
 
 ##### Decompression
 
-1. Strip off the header information
-2. Feed the raw bytes in to the C LZ4 decompression function
-3. Use the header to decide what sort of R object this is
-4. Uncompress the data into an R object of the correct type.
-5. Return the R object to the user
+1. Strip off the 8-bytes of header information.
+2. Feed the other bytes in to the LZ4 decompression function written in C
+3. Use the header to decide what sort of R object this is.
+4. Decompress the data into an R object of the correct type.
+5. Return the R object to the user.
 
 **Note:** matrices and arrays may also be passed to `lz4_compress()`, but since
 no attributes are retained (e.g. dims), the uncompressed object

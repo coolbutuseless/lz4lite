@@ -55,3 +55,20 @@ test_that("basic compression/decompression of logical vectors works", {
   }
 })
 
+
+
+test_that("basic compression/decompression of complex vectors works", {
+  set.seed(5)
+  for (N in c(1e2, 1e3, 1e4, 1e5)) {
+    real <- sample(rnorm(5), N, prob = (1:5)^2, replace = TRUE)
+    imag <- sample(rnorm(5), N, prob = (1:5)^2, replace = TRUE)
+    input_bytes <- complex(real = real, imaginary = imag)
+
+    compressed_bytes <- lz4_compress(input_bytes)
+    expect_true(length(compressed_bytes) < length(input_bytes) * 8)  # for non-pathological inputs
+    decompressed_bytes <- lz4_decompress(compressed_bytes)
+
+    expect_identical(input_bytes, decompressed_bytes)
+  }
+})
+

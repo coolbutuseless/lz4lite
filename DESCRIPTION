@@ -1,7 +1,7 @@
 Package: lz4lite
 Type: Package
 Title: Extremely Fast Compression with LZ4
-Version: 0.1.0
+Version: 0.1.1
 Author: mikefc
 Maintainer: mikefc <mikefc@coolbutuseless.com>
 Description: Extremely fast compression of simple numeric vectors with LZ4.
