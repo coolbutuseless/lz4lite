@@ -14,8 +14,8 @@
 The scope of this package is limited - it aims to provide functions for
 direct hashing of vectors which contain raw, integer, real, complex or
 logical values. It does this by operating on the data payload within the
-vectors, and gains signficant speed by not serializing the R object
-itselsf. If you wanted to compress arbitrary R objects, you must first
+vectors, and gains significant speed by not serializing the R object
+itself. If you wanted to compress arbitrary R objects, you must first
 manually convert into a raw vector representation using
 `base::serialize()`.
 
@@ -102,18 +102,18 @@ res <- bench::mark(
 
 </details>
 
-| expression                                                 |  median | itr/sec |  MB/s | compression\_ratio |
-| :--------------------------------------------------------- | ------: | ------: | ----: | -----------------: |
-| lz4\_compress(input\_ints, acc = 1)                        |  6.27ms |     159 | 608.8 |              0.306 |
-| lz4\_compress(input\_ints, acc = 10)                       |  6.22ms |     160 | 613.5 |              0.306 |
-| lz4\_compress(input\_ints, acc = 20)                       |  6.15ms |     162 | 620.2 |              0.306 |
-| lz4\_compress(input\_ints, acc = 50)                       |  6.18ms |     162 | 616.8 |              0.306 |
-| lz4\_compress(input\_ints, acc = 100)                      |  6.07ms |     164 | 628.5 |              0.306 |
-| lz4\_compress(input\_ints, use\_hc = TRUE, hc\_level = 1)  | 33.77ms |      30 | 113.0 |              0.294 |
-| lz4\_compress(input\_ints, use\_hc = TRUE, hc\_level = 2)  | 33.45ms |      30 | 114.0 |              0.294 |
-| lz4\_compress(input\_ints, use\_hc = TRUE, hc\_level = 4)  | 65.64ms |      15 |  58.1 |              0.233 |
-| lz4\_compress(input\_ints, use\_hc = TRUE, hc\_level = 8)  | 440.8ms |       2 |   8.7 |              0.167 |
-| lz4\_compress(input\_ints, use\_hc = TRUE, hc\_level = 12) |  11.09s |       0 |   0.3 |              0.123 |
+| expression                                                 |   median | itr/sec |  MB/s | compression\_ratio |
+| :--------------------------------------------------------- | -------: | ------: | ----: | -----------------: |
+| lz4\_compress(input\_ints, acc = 1)                        |   6.38ms |     156 | 598.0 |              0.306 |
+| lz4\_compress(input\_ints, acc = 10)                       |   6.28ms |     159 | 607.7 |              0.306 |
+| lz4\_compress(input\_ints, acc = 20)                       |   6.41ms |     156 | 595.0 |              0.306 |
+| lz4\_compress(input\_ints, acc = 50)                       |   6.31ms |     158 | 604.7 |              0.306 |
+| lz4\_compress(input\_ints, acc = 100)                      |   6.45ms |     155 | 591.8 |              0.306 |
+| lz4\_compress(input\_ints, use\_hc = TRUE, hc\_level = 1)  |  35.37ms |      28 | 107.8 |              0.294 |
+| lz4\_compress(input\_ints, use\_hc = TRUE, hc\_level = 2)  |  36.85ms |      27 | 103.5 |              0.294 |
+| lz4\_compress(input\_ints, use\_hc = TRUE, hc\_level = 4)  |  66.85ms |      15 |  57.1 |              0.233 |
+| lz4\_compress(input\_ints, use\_hc = TRUE, hc\_level = 8)  | 465.35ms |       2 |   8.2 |              0.167 |
+| lz4\_compress(input\_ints, use\_hc = TRUE, hc\_level = 12) |   11.63s |       0 |   0.3 |              0.122 |
 
 ### Decompressing 1 million integers
 
@@ -134,8 +134,8 @@ res <- bench::mark(
 
 | expression                      | median | itr/sec |   MB/s |
 | :------------------------------ | -----: | ------: | -----: |
-| lz4\_decompress(compressed\_lo) | 1.59ms |     595 | 2398.4 |
-| lz4\_decompress(compressed\_hi) |  1.2ms |     806 | 3176.6 |
+| lz4\_decompress(compressed\_lo) | 1.62ms |     564 | 2354.6 |
+| lz4\_decompress(compressed\_hi) | 1.23ms |     773 | 3102.6 |
 
 ## Technical bits
 

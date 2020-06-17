@@ -27,8 +27,8 @@ for performing in-memory compression.
 
 The scope of this package is limited - it aims to provide functions for direct hashing of vectors
 which contain raw, integer, real, complex or logical values.  It does this by operating on the
-data payload within the vectors, and gains signficant speed by not serializing the R object
-itselsf.  If you wanted to 
+data payload within the vectors, and gains significant speed by not serializing the R object
+itself.  If you wanted to 
 compress arbitrary R objects, you must first manually convert into a raw
 vector representation using `base::serialize()`.
 
