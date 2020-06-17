@@ -117,7 +117,7 @@ SEXP lz4_compress_(SEXP src_, SEXP acceleration_, SEXP compressionLevel_, SEXP H
   header[1] = srcSize;
   rdstp[0] = 'L'; /* 'LZ4' */
   rdstp[1] = 'Z'; /* 'LZ4' */
-  rdstp[1] = '4'; /* 'LZ4' */
+  rdstp[2] = '4'; /* 'LZ4' */
   rdstp[3] = (char)sexp_type;    /* Store SEXP type here */
 
   free(dst);
@@ -143,8 +143,8 @@ SEXP lz4_decompress_(SEXP src_) {
   int *isrc = (int *)RAW(src_);
 
   /* Check the magic bytes are correct i.e. there is a header with length info */
-  if (src[0] != 'L' & src[1] != 'Z' & src[2] != '4') {
-    error("Buffer must be LZ4 data compressed with 'lz4lite'");
+  if (src[0] != 'L' | src[1] != 'Z' | src[2] != '4') {
+    error("Buffer must be LZ4 data compressed with 'lz4lite'. 'LZ4' expected as header, but got - '%c%c%c'", src[0], src[1], src[2]);
   }
 
   /* Find the number of bytes in src and final decompressed size.
