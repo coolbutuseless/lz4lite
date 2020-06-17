@@ -50,10 +50,10 @@ SEXP lz4_compress_(SEXP src_, SEXP acceleration_, SEXP compressionLevel_, SEXP H
   int sexp_type = TYPEOF(src_);
   int srcSize   = length(src_);
   int mult;
-  char *src;
+  void *src;
 
   /* Get a pointer to the data */
-  src = (char *)DATAPTR(src_);
+  src = (void *)DATAPTR(src_);
 
  /* adjust 'srcSize' for the given datatype */
   switch(sexp_type) {
@@ -110,7 +110,7 @@ SEXP lz4_compress_(SEXP src_, SEXP acceleration_, SEXP compressionLevel_, SEXP H
    */
   SEXP rdst = PROTECT(allocVector(RAWSXP, status + 8));
   char *rdstp = (char *)RAW(rdst);
-  int *header = (int *)RAW(rdst);
+  int *header = (int *)rdstp;
   memcpy(rdstp + 8, dst, status);
 
   /* Do some header twiddling */
@@ -139,8 +139,8 @@ SEXP lz4_compress_(SEXP src_, SEXP acceleration_, SEXP compressionLevel_, SEXP H
 SEXP lz4_decompress_(SEXP src_) {
 
   /* Some pointers into the buffer */
-  char *src = (char *)RAW(src_);
-  int *isrc = (int *)RAW(src_);
+  const char *src = (const char *)RAW(src_);
+  const int *isrc = (const int *)src;
 
   /* Check the magic bytes are correct i.e. there is a header with length info */
   if (src[0] != 'L' | src[1] != 'Z' | src[2] != '4') {
@@ -155,29 +155,29 @@ SEXP lz4_decompress_(SEXP src_) {
 
   /* Create a decompression buffer of the exact required size and do decompression */
   SEXP dst_;
-  char *dst;
+  void *dst;
   int sexp_type = src[3];
 
   switch(sexp_type) {
   case LGLSXP:
     dst_ = PROTECT(allocVector(LGLSXP, dstCapacity/4));
-    dst = (char *)LOGICAL(dst_);
+    dst = (void *)LOGICAL(dst_);
     break;
   case INTSXP:
     dst_ = PROTECT(allocVector(INTSXP, dstCapacity/4));
-    dst = (char *)INTEGER(dst_);
+    dst = (void *)INTEGER(dst_);
     break;
   case REALSXP:
     dst_ = PROTECT(allocVector(REALSXP, dstCapacity/8));
-    dst = (char *)REAL(dst_);
+    dst = (void *)REAL(dst_);
     break;
   case RAWSXP:
     dst_ = PROTECT(allocVector(RAWSXP, dstCapacity));
-    dst = (char *)RAW(dst_);
+    dst = (void *)RAW(dst_);
     break;
   case CPLXSXP:
     dst_ = PROTECT(allocVector(CPLXSXP, dstCapacity/16));
-    dst = (char *)COMPLEX(dst_);
+    dst = (void *)COMPLEX(dst_);
     break;
   default:
     error("decompress() cannot handles SEXP type: %i\n", sexp_type);
