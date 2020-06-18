@@ -73,7 +73,7 @@ speed is \~3GB/s
 library(lz4lite)
 
 N             <- 1e6
-input_ints    <- (sample(seq(1:5), N, prob = (1:5)^2, replace = TRUE))
+input_ints    <- sample(1:5, N, prob = (1:5)^2, replace = TRUE)
 compressed_lo <- lz4_compress(input_ints)
 compressed_hi <- lz4_compress(input_ints, use_hc = TRUE, hc_level = 12)
 ```
@@ -104,16 +104,16 @@ res <- bench::mark(
 
 | expression                                                 |   median | itr/sec |  MB/s | compression\_ratio |
 | :--------------------------------------------------------- | -------: | ------: | ----: | -----------------: |
-| lz4\_compress(input\_ints, acc = 1)                        |   6.38ms |     156 | 598.0 |              0.306 |
-| lz4\_compress(input\_ints, acc = 10)                       |   6.28ms |     159 | 607.7 |              0.306 |
-| lz4\_compress(input\_ints, acc = 20)                       |   6.41ms |     156 | 595.0 |              0.306 |
-| lz4\_compress(input\_ints, acc = 50)                       |   6.31ms |     158 | 604.7 |              0.306 |
-| lz4\_compress(input\_ints, acc = 100)                      |   6.45ms |     155 | 591.8 |              0.306 |
-| lz4\_compress(input\_ints, use\_hc = TRUE, hc\_level = 1)  |  35.37ms |      28 | 107.8 |              0.294 |
-| lz4\_compress(input\_ints, use\_hc = TRUE, hc\_level = 2)  |  36.85ms |      27 | 103.5 |              0.294 |
-| lz4\_compress(input\_ints, use\_hc = TRUE, hc\_level = 4)  |  66.85ms |      15 |  57.1 |              0.233 |
-| lz4\_compress(input\_ints, use\_hc = TRUE, hc\_level = 8)  | 465.35ms |       2 |   8.2 |              0.167 |
-| lz4\_compress(input\_ints, use\_hc = TRUE, hc\_level = 12) |   11.63s |       0 |   0.3 |              0.122 |
+| lz4\_compress(input\_ints, acc = 1)                        |   6.42ms |     151 | 593.8 |              0.306 |
+| lz4\_compress(input\_ints, acc = 10)                       |   6.38ms |     156 | 598.1 |              0.306 |
+| lz4\_compress(input\_ints, acc = 20)                       |   6.32ms |     159 | 603.7 |              0.306 |
+| lz4\_compress(input\_ints, acc = 50)                       |   6.45ms |     154 | 591.6 |              0.306 |
+| lz4\_compress(input\_ints, acc = 100)                      |   6.39ms |     157 | 596.6 |              0.306 |
+| lz4\_compress(input\_ints, use\_hc = TRUE, hc\_level = 1)  |  35.18ms |      28 | 108.4 |              0.294 |
+| lz4\_compress(input\_ints, use\_hc = TRUE, hc\_level = 2)  |  34.23ms |      29 | 111.5 |              0.294 |
+| lz4\_compress(input\_ints, use\_hc = TRUE, hc\_level = 4)  |  67.98ms |      15 |  56.1 |              0.233 |
+| lz4\_compress(input\_ints, use\_hc = TRUE, hc\_level = 8)  | 486.08ms |       2 |   7.8 |              0.167 |
+| lz4\_compress(input\_ints, use\_hc = TRUE, hc\_level = 12) |    11.8s |       0 |   0.3 |              0.122 |
 
 ### Decompressing 1 million integers
 
@@ -134,8 +134,8 @@ res <- bench::mark(
 
 | expression                      | median | itr/sec |   MB/s |
 | :------------------------------ | -----: | ------: | -----: |
-| lz4\_decompress(compressed\_lo) | 1.62ms |     564 | 2354.6 |
-| lz4\_decompress(compressed\_hi) | 1.23ms |     773 | 3102.6 |
+| lz4\_decompress(compressed\_lo) | 1.81ms |     481 | 2108.7 |
+| lz4\_decompress(compressed\_hi) | 1.36ms |     645 | 2805.1 |
 
 ## Technical bits
 

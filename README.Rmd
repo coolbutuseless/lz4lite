@@ -85,7 +85,7 @@ On this test data, compression speed is ~600 MB/s, and decompression speed is ~3
 library(lz4lite)
 
 N             <- 1e6
-input_ints    <- (sample(seq(1:5), N, prob = (1:5)^2, replace = TRUE))
+input_ints    <- sample(1:5, N, prob = (1:5)^2, replace = TRUE)
 compressed_lo <- lz4_compress(input_ints)
 compressed_hi <- lz4_compress(input_ints, use_hc = TRUE, hc_level = 12)
 ```

@@ -153,6 +153,7 @@ SEXP lz4_decompress_(SEXP src_) {
   int compressedSize = length(src_) - 8;
   int dstCapacity = isrc[1];
 
+
   /* Create a decompression buffer of the exact required size and do decompression */
   SEXP dst_;
   void *dst;
