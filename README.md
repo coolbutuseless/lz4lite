@@ -7,6 +7,8 @@
 
 ![](https://img.shields.io/badge/cool-useless-green.svg) [![Lifecycle:
 experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://www.tidyverse.org/lifecycle/#experimental)
+[![R build
+status](https://github.com/coolbutuseless/lz4lite/workflows/R-CMD-check/badge.svg)](https://github.com/coolbutuseless/lz4lite/actions)
 <!-- badges: end -->
 
 `lz4lite` provides access to the extremely fast compression in
@@ -126,15 +128,15 @@ res <- bench::mark(
 
 | expression                                     |   median | itr/sec |  MB/s | compression\_ratio |
 | :--------------------------------------------- | -------: | ------: | ----: | -----------------: |
-| serialize(input\_ints, NULL, xdr = FALSE)      |  20.19ms |      49 | 944.8 |              1.000 |
-| lz4\_serialize(input\_ints, acceleration = 1)  |  36.12ms |      28 | 528.1 |              0.222 |
-| lz4hc\_serialize(input\_ints, level = 3)       | 212.26ms |       5 |  89.9 |              0.155 |
-| lz4hc\_serialize(input\_ints, level = 9)       |    3.25s |       0 |   5.9 |              0.088 |
-| lz4hc\_serialize(input\_ints, level = max\_hc) |   36.02s |       0 |   0.5 |              0.063 |
-| lz4\_compress(input\_ints, acceleration = 1)   |   25.8ms |      39 | 739.2 |              0.222 |
-| lz4hc\_compress(input\_ints, level = 3)        |  206.8ms |       5 |  92.2 |              0.155 |
-| lz4hc\_compress(input\_ints, level = 9)        |    3.27s |       0 |   5.8 |              0.088 |
-| lz4hc\_compress(input\_ints, level = max\_hc)  |   36.25s |       0 |   0.5 |              0.063 |
+| serialize(input\_ints, NULL, xdr = FALSE)      |  19.16ms |      51 | 995.5 |              1.000 |
+| lz4\_serialize(input\_ints, acceleration = 1)  |   34.1ms |      29 | 559.3 |              0.222 |
+| lz4hc\_serialize(input\_ints, level = 3)       | 218.64ms |       5 |  87.2 |              0.155 |
+| lz4hc\_serialize(input\_ints, level = 9)       |    3.26s |       0 |   5.9 |              0.088 |
+| lz4hc\_serialize(input\_ints, level = max\_hc) |   35.91s |       0 |   0.5 |              0.063 |
+| lz4\_compress(input\_ints, acceleration = 1)   |  26.06ms |      38 | 732.0 |              0.222 |
+| lz4hc\_compress(input\_ints, level = 3)        | 207.49ms |       5 |  91.9 |              0.155 |
+| lz4hc\_compress(input\_ints, level = 9)        |    3.35s |       0 |   5.7 |              0.088 |
+| lz4hc\_compress(input\_ints, level = max\_hc)  |   36.28s |       0 |   0.5 |              0.063 |
 
 ### uncompressing 1 million integers
 
@@ -157,10 +159,10 @@ res <- bench::mark(
 
 | expression                        |  median | itr/sec |   MB/s |
 | :-------------------------------- | ------: | ------: | -----: |
-| lz4\_uncompress(compress\_lo)     | 12.09ms |      73 | 1577.5 |
-| lz4\_uncompress(compress\_hi\_3)  | 10.36ms |      93 | 1841.1 |
-| lz4\_uncompress(compress\_hi\_9)  |  6.16ms |     152 | 3094.6 |
-| lz4\_uncompress(compress\_hi\_12) |  4.76ms |     189 | 4002.6 |
+| lz4\_uncompress(compress\_lo)     | 10.37ms |      73 | 1840.2 |
+| lz4\_uncompress(compress\_hi\_3)  | 10.27ms |      95 | 1857.3 |
+| lz4\_uncompress(compress\_hi\_9)  |  6.13ms |     155 | 3111.7 |
+| lz4\_uncompress(compress\_hi\_12) |  4.74ms |     196 | 4021.5 |
 
 ### uncompressing 1 million integers
 
@@ -184,11 +186,11 @@ res <- bench::mark(
 
 | expression                          |  median | itr/sec |   MB/s |
 | :---------------------------------- | ------: | ------: | -----: |
-| unserialize(serialize\_base)        |  5.86ms |     130 | 3255.3 |
-| lz4\_unserialize(serialize\_lo)     | 27.62ms |      42 |  690.5 |
-| lz4\_unserialize(serialize\_hi\_3)  | 30.19ms |      39 |  631.9 |
-| lz4\_unserialize(serialize\_hi\_9)  | 26.14ms |      46 |  729.8 |
-| lz4\_unserialize(serialize\_hi\_12) | 23.91ms |      48 |  797.8 |
+| unserialize(serialize\_base)        |  6.18ms |     130 | 3084.2 |
+| lz4\_unserialize(serialize\_lo)     | 29.27ms |      41 |  651.7 |
+| lz4\_unserialize(serialize\_hi\_3)  | 28.95ms |      41 |  658.8 |
+| lz4\_unserialize(serialize\_hi\_9)  | 25.14ms |      49 |  758.6 |
+| lz4\_unserialize(serialize\_hi\_12) | 14.48ms |      62 | 1317.6 |
 
 ## Technical bits
 

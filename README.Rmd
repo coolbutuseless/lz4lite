@@ -21,6 +21,7 @@ library(lz4lite)
 <!-- badges: start -->
 ![](https://img.shields.io/badge/cool-useless-green.svg)
 [![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://www.tidyverse.org/lifecycle/#experimental)
+[![R build status](https://github.com/coolbutuseless/lz4lite/workflows/R-CMD-check/badge.svg)](https://github.com/coolbutuseless/lz4lite/actions)
 <!-- badges: end -->
 
 `lz4lite` provides access to the extremely fast compression in [lz4](https://github.com/lz4/lz4)
