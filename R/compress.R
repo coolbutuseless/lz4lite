@@ -14,7 +14,7 @@
 #'
 #' @export
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-lz4_compress <- function(src, acceleration = 1) {
+lz4_compress <- function(src, acceleration = 1L) {
   .Call(lz4_compress_, src, as.integer(acceleration), FALSE, 1L)
 }
 
@@ -22,7 +22,7 @@ lz4_compress <- function(src, acceleration = 1) {
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #' @rdname lz4_compress
 #'
-#' @param level compression level for LZ4HC compression. default 9L. Valid range 3-12.
+#' @param level compression level for LZ4HC compression. default 1
 #'
 #' @export
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

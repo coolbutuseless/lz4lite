@@ -8,7 +8,7 @@ test_that("accelerated compression/decompression of raw vectors works", {
 
       compressed_bytes <- lz4_compress(input_bytes, acc)
       # cat(N, " ", acc, " ", length(compressed_bytes)/length(input_bytes), "\n")
-      decompressed_bytes <- lz4_decompress(compressed_bytes)
+      decompressed_bytes <- lz4_uncompress(compressed_bytes)
 
       expect_identical(input_bytes, decompressed_bytes)
     }
