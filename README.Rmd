@@ -88,6 +88,7 @@ max_hc <- 12
 set.seed(1)
 N                <- 5e6
 input_ints       <- sample(1:3, N, prob = (1:3)^3, replace = TRUE)
+serialize_base   <- serialize(input_ints, NULL, xdr = FALSE)
 serialize_lo     <- lz4_serialize(input_ints, acceleration = 1)
 serialize_hi_3   <- lz4hc_serialize(input_ints, level =  3)
 serialize_hi_9   <- lz4hc_serialize(input_ints, level =  9)
@@ -185,6 +186,7 @@ uncompression speed varies slightly depending upon the compressed size.
 
 ```{r}
 res <- bench::mark(
+  unserialize(serialize_base),
   lz4_unserialize(serialize_lo),
   lz4_unserialize(serialize_hi_3),
   lz4_unserialize(serialize_hi_9),
