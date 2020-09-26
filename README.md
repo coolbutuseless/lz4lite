@@ -126,17 +126,17 @@ res <- bench::mark(
 
 </details>
 
-| expression                                     |   median | itr/sec |  MB/s | compression\_ratio |
-| :--------------------------------------------- | -------: | ------: | ----: | -----------------: |
-| serialize(input\_ints, NULL, xdr = FALSE)      |  19.16ms |      51 | 995.5 |              1.000 |
-| lz4\_serialize(input\_ints, acceleration = 1)  |   34.1ms |      29 | 559.3 |              0.222 |
-| lz4hc\_serialize(input\_ints, level = 3)       | 218.64ms |       5 |  87.2 |              0.155 |
-| lz4hc\_serialize(input\_ints, level = 9)       |    3.26s |       0 |   5.9 |              0.088 |
-| lz4hc\_serialize(input\_ints, level = max\_hc) |   35.91s |       0 |   0.5 |              0.063 |
-| lz4\_compress(input\_ints, acceleration = 1)   |  26.06ms |      38 | 732.0 |              0.222 |
-| lz4hc\_compress(input\_ints, level = 3)        | 207.49ms |       5 |  91.9 |              0.155 |
-| lz4hc\_compress(input\_ints, level = 9)        |    3.35s |       0 |   5.7 |              0.088 |
-| lz4hc\_compress(input\_ints, level = max\_hc)  |   36.28s |       0 |   0.5 |              0.063 |
+| expression                                     |   median | itr/sec |   MB/s | compression\_ratio |
+| :--------------------------------------------- | -------: | ------: | -----: | -----------------: |
+| serialize(input\_ints, NULL, xdr = FALSE)      |  18.99ms |      50 | 1004.5 |              1.000 |
+| lz4\_serialize(input\_ints, acceleration = 1)  |  30.58ms |      32 |  623.7 |              0.222 |
+| lz4hc\_serialize(input\_ints, level = 3)       | 215.84ms |       5 |   88.4 |              0.155 |
+| lz4hc\_serialize(input\_ints, level = 9)       |    3.28s |       0 |    5.8 |              0.088 |
+| lz4hc\_serialize(input\_ints, level = max\_hc) |   36.09s |       0 |    0.5 |              0.063 |
+| lz4\_compress(input\_ints, acceleration = 1)   |  24.16ms |      41 |  789.4 |              0.222 |
+| lz4hc\_compress(input\_ints, level = 3)        | 208.71ms |       5 |   91.4 |              0.155 |
+| lz4hc\_compress(input\_ints, level = 9)        |    3.28s |       0 |    5.8 |              0.088 |
+| lz4hc\_compress(input\_ints, level = max\_hc)  |   36.36s |       0 |    0.5 |              0.063 |
 
 ### uncompressing 1 million integers
 
@@ -159,10 +159,10 @@ res <- bench::mark(
 
 | expression                        |  median | itr/sec |   MB/s |
 | :-------------------------------- | ------: | ------: | -----: |
-| lz4\_uncompress(compress\_lo)     | 10.37ms |      73 | 1840.2 |
-| lz4\_uncompress(compress\_hi\_3)  | 10.27ms |      95 | 1857.3 |
-| lz4\_uncompress(compress\_hi\_9)  |  6.13ms |     155 | 3111.7 |
-| lz4\_uncompress(compress\_hi\_12) |  4.74ms |     196 | 4021.5 |
+| lz4\_uncompress(compress\_lo)     | 12.26ms |      79 | 1555.4 |
+| lz4\_uncompress(compress\_hi\_3)  | 12.37ms |      70 | 1542.4 |
+| lz4\_uncompress(compress\_hi\_9)  | 12.97ms |      94 | 1470.4 |
+| lz4\_uncompress(compress\_hi\_12) |  6.03ms |     121 | 3161.8 |
 
 ### uncompressing 1 million integers
 
@@ -186,11 +186,11 @@ res <- bench::mark(
 
 | expression                          |  median | itr/sec |   MB/s |
 | :---------------------------------- | ------: | ------: | -----: |
-| unserialize(serialize\_base)        |  6.18ms |     130 | 3084.2 |
-| lz4\_unserialize(serialize\_lo)     | 29.27ms |      41 |  651.7 |
-| lz4\_unserialize(serialize\_hi\_3)  | 28.95ms |      41 |  658.8 |
-| lz4\_unserialize(serialize\_hi\_9)  | 25.14ms |      49 |  758.6 |
-| lz4\_unserialize(serialize\_hi\_12) | 14.48ms |      62 | 1317.6 |
+| unserialize(serialize\_base)        |  6.64ms |     120 | 2871.9 |
+| lz4\_unserialize(serialize\_lo)     |  29.8ms |      38 |  640.0 |
+| lz4\_unserialize(serialize\_hi\_3)  | 29.38ms |      39 |  649.3 |
+| lz4\_unserialize(serialize\_hi\_9)  | 24.97ms |      48 |  763.8 |
+| lz4\_unserialize(serialize\_hi\_12) | 23.87ms |      49 |  799.0 |
 
 ## Technical bits
 

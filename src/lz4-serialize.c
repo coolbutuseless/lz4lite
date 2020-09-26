@@ -57,22 +57,25 @@ SEXP lz4_serialize_(SEXP robj, SEXP acceleration_, SEXP use_hc_, SEXP compressio
   int dstCapacity  = LZ4_compressBound(srcSize);
 
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  // Create a temporary buffer to hold anything up to this size
+  // Allocate a raw R vector of the exact length hold the compressed data
+  // and memcpy just the compressed bytes into it.
+  // Allocate more bytes than necessary so that there is a minimal header
+  // at the front of the compressed data with
+  //  - 3 bytes: magic bytes: LZ4
+  //  - 1 byte: SEXP type
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  char *dst;
-  dst = (char *)malloc(dstCapacity);
-  if (!dst) {
-    error("Couldn't allocate compression buffer of size: %i\n", dstCapacity);
-  }
+  SEXP rdst = PROTECT(allocVector(RAWSXP, dstCapacity + MAGIC_LENGTH));
+  char *rdstp = (char *)RAW(rdst);
+
 
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   // Compress the data into the temporary buffer
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   int num_compressed_bytes;
   if (asLogical(use_hc_)) {
-    num_compressed_bytes = LZ4_compress_HC ((const char *)buf->data, dst, srcSize, dstCapacity, asInteger(compressionLevel_));
+    num_compressed_bytes = LZ4_compress_HC ((const char *)buf->data, rdstp + MAGIC_LENGTH, srcSize, dstCapacity, asInteger(compressionLevel_));
   } else {
-    num_compressed_bytes = LZ4_compress_fast ((const char *)buf->data, dst, srcSize, dstCapacity, asInteger(acceleration_));
+    num_compressed_bytes = LZ4_compress_fast ((const char *)buf->data, rdstp + MAGIC_LENGTH, srcSize, dstCapacity, asInteger(acceleration_));
   }
 
   /* Watch for badness */
@@ -80,21 +83,6 @@ SEXP lz4_serialize_(SEXP robj, SEXP acceleration_, SEXP use_hc_, SEXP compressio
     error("Compression error. Status: %i", num_compressed_bytes);
   }
 
-  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  // Allocate a raw R vector of the exact length hold the compressed data
-  // and memcpy just the compressed bytes into it.
-  // Allocate more bytes than necessary so that there is a minimal header
-  // at the front of the compressed data with
-  //  - 3 bytes: magic bytes: LZ4
-  //  - 1 byte: SEXP type
-  //
-  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  SEXP rdst = PROTECT(allocVector(RAWSXP, num_compressed_bytes + MAGIC_LENGTH));
-  char *rdstp = (char *)RAW(rdst);
-
-
-
-  memcpy(rdstp + MAGIC_LENGTH, dst, num_compressed_bytes);
 
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   // Set 3 magic bytes for the header, and 1 byte for ndims + sexp type
@@ -102,10 +90,15 @@ SEXP lz4_serialize_(SEXP robj, SEXP acceleration_, SEXP use_hc_, SEXP compressio
   rdstp[0] = 'L'; /* LZ4' */
   rdstp[1] = 'Z'; /* LZ4' */
   rdstp[2] = '4'; /* LZ4' */
-  rdstp[3] =  0;  /* Store SEXP type here */
+  rdstp[3] =  0;  /* 0 indicates this is was created with `lz4_serialize()` and not `lz4_compress()` */
 
   int *header = (int *)rdstp;
   header[1] = srcSize;
+
+  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  // Adjust actual length of compressed data
+  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  SETLENGTH(rdst, num_compressed_bytes + MAGIC_LENGTH);
 
   // Free all the memory
   free(buf->data);

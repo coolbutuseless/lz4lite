@@ -1,4 +1,8 @@
-# lz4lite 0.2.0 2020-09-24
+# lz4lite 0.2.1 2020-09-26
+
+* Performance: Remove a memory allocation during `lz4_serialize()`
+
+# lz4lite 0.2.0 2020-09-25
 
 * Feature: Added `lz4_serialize()` and `lz4_unserialize()` to serialize and
   compress arbitrary R objects.
