@@ -1,4 +1,6 @@
 
+#define R_NO_REMAP
+
 #include <R.h>
 #include <Rinternals.h>
 
@@ -18,7 +20,7 @@ SEXP lz4_compress_(SEXP src_) {
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   // SEXP type will determine multiplier for data size
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  int srcSize   = length(src_);
+  int srcSize   = Rf_length(src_);
   void *src = (char *)RAW(src_);
 
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -33,7 +35,7 @@ SEXP lz4_compress_(SEXP src_) {
   //  - 1 byte: SEXP type
   //  - 4 bytes: Number of bytes of uncompressed data (32 bit integer)
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  SEXP dst_ = PROTECT(allocVector(RAWSXP, dstCapacity + MAGIC_LENGTH));
+  SEXP dst_ = PROTECT(Rf_allocVector(RAWSXP, dstCapacity + MAGIC_LENGTH));
   char *dst = (char *)RAW(dst_);
 
 
@@ -49,7 +51,7 @@ SEXP lz4_compress_(SEXP src_) {
   // Watch for compression failure
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   if (num_compressed_bytes <= 0) {
-    error("Compression error. Status: %i", num_compressed_bytes);
+    Rf_error("Compression error. Status: %i", num_compressed_bytes);
   }
 
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -97,21 +99,21 @@ SEXP lz4_decompress_(SEXP src_) {
   // Check the magic bytes are correct i.e. there is a header with length info
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   if (src[0] != 'L' || src[1] != 'Z' || src[2] != '4' || src[3] != 'C') {
-    error("Buffer must be LZ4 data compressed with 'lz4lite'. 'LZ4C' expected as header, but got - '%c%c%c%c'", src[0], src[1], src[2], src[3]);
+    Rf_error("Buffer must be LZ4 data compressed with 'lz4lite'. 'LZ4C' expected as header, but got - '%c%c%c%c'", src[0], src[1], src[2], src[3]);
   }
 
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   // Find the number of bytes in src and final decompressed size.
   // Need to account for the 8byte header
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  int compressedSize = length(src_) - MAGIC_LENGTH;
+  int compressedSize = Rf_length(src_) - MAGIC_LENGTH;
   int dstCapacity = isrc[1];
 
 
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   // Create a decompression buffer of the exact required size and do decompression
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  SEXP dst_ = PROTECT(allocVector(RAWSXP, dstCapacity));
+  SEXP dst_ = PROTECT(Rf_allocVector(RAWSXP, dstCapacity));
   void *dst = (void *)RAW(dst_);
 
 
@@ -126,7 +128,7 @@ SEXP lz4_decompress_(SEXP src_) {
   // Watch for badness
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   if (status <= 0) {
-    error("De-compression error. Status: %i", status);
+    Rf_error("De-compression error. Status: %i", status);
   }
 
   UNPROTECT(1);

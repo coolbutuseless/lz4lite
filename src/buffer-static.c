@@ -1,5 +1,5 @@
 
-
+#define R_NO_REMAP
 
 #include <R.h>
 #include <Rinternals.h>
@@ -17,12 +17,12 @@
 static_buffer_t *init_buffer(int nbytes) {
   static_buffer_t *buf = (static_buffer_t *)malloc(sizeof(static_buffer_t));
   if (buf == NULL) {
-    error("init_buffer(): cannot malloc buffer");
+    Rf_error("init_buffer(): cannot malloc buffer");
   }
 
   buf->data = (unsigned char *)malloc((size_t)nbytes * sizeof(unsigned char));
   if (buf->data == NULL) {
-    error("init_buffer(): cannot malloc buffer data");
+    Rf_error("init_buffer(): cannot malloc buffer data");
   }
 
   buf->length = nbytes;

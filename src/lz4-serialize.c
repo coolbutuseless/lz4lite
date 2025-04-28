@@ -1,6 +1,5 @@
 
-
-
+#define R_NO_REMAP
 
 #include <R.h>
 #include <Rinternals.h>
@@ -63,7 +62,7 @@ SEXP lz4_serialize_(SEXP robj) {
   //  - 3 bytes: magic bytes: LZ4
   //  - 1 byte: SEXP type
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  SEXP rdst = PROTECT(allocVector(RAWSXP, dstCapacity + MAGIC_LENGTH));
+  SEXP rdst = PROTECT(Rf_allocVector(RAWSXP, dstCapacity + MAGIC_LENGTH));
   char *rdstp = (char *)RAW(rdst);
 
 
@@ -75,7 +74,7 @@ SEXP lz4_serialize_(SEXP robj) {
 
   /* Watch for badness */
   if (num_compressed_bytes <= 0) {
-    error("Compression error. Status: %i", num_compressed_bytes);
+    Rf_error("Compression error. Status: %i", num_compressed_bytes);
   }
 
 
@@ -113,7 +112,7 @@ SEXP lz4_unserialize_(SEXP src_) {
   // Sanity check
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   if (TYPEOF(src_) != RAWSXP) {
-    error("unpack(): Only raw vectors can be unserialized");
+    Rf_error("unpack(): Only raw vectors can be unserialized");
   }
 
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -126,7 +125,7 @@ SEXP lz4_unserialize_(SEXP src_) {
   // Check the magic bytes are correct i.e. there is a header with length info
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   if (src[0] != 'L' || src[1] != 'Z' || src[2] != '4' || src[3] != 'S') {
-    error("lzr_unserialize(): Buffer must be LZ4 data compressed with 'lz4lite'. 'LZ40' expected as header, but got - '%c%c%c%c'",
+    Rf_error("lzr_unserialize(): Buffer must be LZ4 data compressed with 'lz4lite'. 'LZ40' expected as header, but got - '%c%c%c%c'",
           src[0], src[1], src[2], src[3]);
   }
 
@@ -134,7 +133,7 @@ SEXP lz4_unserialize_(SEXP src_) {
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   // Find the number of bytes of compressed data in the frame
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  int compressedSize = length(src_) - MAGIC_LENGTH;
+  int compressedSize = Rf_length(src_) - MAGIC_LENGTH;
   int dstCapacity = isrc[1];
 
 
@@ -152,14 +151,14 @@ SEXP lz4_unserialize_(SEXP src_) {
   // Watch for decompression errors
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   if (status <= 0) {
-    error("lz4_unserialize(): De-compression error. Status: %i", status);
+    Rf_error("lz4_unserialize(): De-compression error. Status: %i", status);
   }
 
 
   // Create a buffer object which points to the raw data
   static_buffer_t *buf = malloc(sizeof(static_buffer_t));
   if (buf == NULL) {
-    error("'buf' malloc failed!");
+    Rf_error("'buf' malloc failed!");
   }
   buf->length = dstCapacity;
   buf->pos    = 0;
