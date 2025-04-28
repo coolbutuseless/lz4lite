@@ -20,35 +20,23 @@ library(lz4lite)
 
 <!-- badges: start -->
 ![](https://img.shields.io/badge/cool-useless-green.svg)
-[![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://www.tidyverse.org/lifecycle/#experimental)
-[![R build status](https://github.com/coolbutuseless/lz4lite/workflows/R-CMD-check/badge.svg)](https://github.com/coolbutuseless/lz4lite/actions)
+[![CRAN](https://www.r-pkg.org/badges/version/yyjsonr)](https://cran.r-project.org/package=yyjsonr)
+[![R-CMD-check](https://github.com/coolbutuseless/lz4lite/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/coolbutuseless/lz4lite/actions/workflows/R-CMD-check.yaml)
 <!-- badges: end -->
 
 `lz4lite` provides access to the extremely fast compression in [lz4](https://github.com/lz4/lz4)
-for performing in-memory compression.
+for performing in-memory compression of any R ojbect.
 
-As of v0.2.0, `lz4lite` can now serialize and compress any R object understood by
-`base::serialize()`.
-
-If the input is known to be an atomic, numeric vector, and you do not care about any attributes or
-names on this vector, then `lz4_compress()`/`lz4_uncompress()` can be used. These
-are bespoke serialization routines for atomic numeric vectors that run faster since
-they avoid R's internals.
-
-For a more general solution to fast serialization of R objects, see the 
-[fst](https://github.com/fstpackage/fst) or [qs](https://cran.r-project.org/package=qs) packages.
-
-Currently lz4 code provided with this package is v1.9.3.
+`lz4` code provided with this package is v1.10.0.
 
 
 ### What's in the box
 
 * **For arbitrary R objects**
-    * `lz4_serialize`/`lz4_unserialize` serialize and compress any R object.
-* **For atomic vectors with numeric values**
-    * `lz4_compress()`/`lz4_uncompress()`
-        - compress the data within a vector of  raw, integer, real, complex or logical values
-        - faster than `lz4_serialize/unserialize` but throws away all attributes i.e. names, dims etc
+    * `lz4_serialize()`/`lz4_unserialize()` serialize and compress any R object.
+* **For raw vectors**
+    * `lz4_compress()`/`lz4_decompress()`
+
 
 ### Installation
 
@@ -57,6 +45,12 @@ You can install from [GitHub](https://github.com/coolbutuseless/lz4lite) with:
 ``` r
 # install.package('remotes')
 remotes::install_github('coolbutuseless/lz4lite)
+```
+
+Pre-built source/binary versions can also be installed from [R-universe](https://r-universe.dev)
+
+``` r
+install.packages('lz4lite', repos = c('https://coolbutuseless.r-universe.dev', 'https://cloud.r-project.org'))
 ```
 
 
@@ -78,135 +72,6 @@ head(lz4_unserialize(buf))
 
 
 
-## Compressing 1 million Integers
-
-
-```{r}
-library(lz4lite)
-
-max_hc <- 12
-
-set.seed(1)
-N                <- 5e6
-input_ints       <- sample(1:3, N, prob = (1:3)^3, replace = TRUE)
-serialize_base   <- serialize(input_ints, NULL, xdr = FALSE)
-serialize_lo     <- lz4_serialize(input_ints, acceleration = 1)
-serialize_hi_3   <- lz4hc_serialize(input_ints, level =  3)
-serialize_hi_9   <- lz4hc_serialize(input_ints, level =  9)
-serialize_hi_12  <- lz4hc_serialize(input_ints, level = max_hc)
-compress_lo      <- lz4_compress(input_ints, acceleration = 1)
-compress_hi_3    <- lz4hc_compress(input_ints, level = 3)
-compress_hi_9    <- lz4hc_compress(input_ints, level = 9)
-compress_hi_12   <- lz4hc_compress(input_ints, level = max_hc)
-```
-
-
-```{r echo = FALSE}
-lens <- c(
-  length(serialize(input_ints, NULL, xdr = FALSE)),
-  length(lz4_serialize(input_ints, acceleration = 1)),
-  length(lz4hc_serialize(input_ints, level =  3)),
-  length(lz4hc_serialize(input_ints, level =  9)),
-  length(lz4hc_serialize(input_ints, level = max_hc)),
-  length(lz4_compress (input_ints, acceleration = 1)),
-  length(lz4hc_compress (input_ints, level =  3)),
-  length(lz4hc_compress (input_ints, level =  9)),
-  length(lz4hc_compress (input_ints, level = max_hc))
-)
-```
-
-
-
-<details>
-<summary> Click here to show/hide benchmark code </summary>
-
-```{r}
-library(lz4lite)
-
-res <- bench::mark(
-  serialize(input_ints, NULL, xdr = FALSE),
-  lz4_serialize(input_ints, acceleration = 1),
-  lz4hc_serialize(input_ints, level =  3),
-  lz4hc_serialize(input_ints, level =  9),
-  lz4hc_serialize(input_ints, level = max_hc),
-  lz4_compress (input_ints, acceleration = 1),
-  lz4hc_compress (input_ints, level =  3),
-  lz4hc_compress (input_ints, level =  9),
-  lz4hc_compress (input_ints, level = max_hc),
-  check = FALSE
-)
-```
-</details>
-
-
-```{r echo = FALSE}
-res %>% 
-  mutate(`MB/s` = round(N*4/1024^2 / as.numeric(median), 1)) %>%
-  mutate(`itr/sec` = round(`itr/sec`)) %>%
-  mutate(compression_ratio = round(lens/(N*4), 3)) %>%
-  select(expression, median, `itr/sec`, `MB/s`, compression_ratio) %>%
-  knitr::kable()
-```
-
-
-### uncompressing 1 million integers
-
-uncompression speed varies slightly depending upon the compressed size.
-
-<details>
-<summary> Click here to show/hide benchmark code </summary>
-
-```{r}
-res <- bench::mark(
-  lz4_uncompress(compress_lo),
-  lz4_uncompress(compress_hi_3),
-  lz4_uncompress(compress_hi_9),
-  lz4_uncompress(compress_hi_12)
-)
-```
-
-</details>
-
-```{r echo = FALSE}
-res %>% 
-  mutate(`MB/s` = round(N*4/1024^2 / as.numeric(median), 1)) %>%
-  mutate(`itr/sec` = round(`itr/sec`)) %>%
-  select(expression, median, `itr/sec`, `MB/s`)  %>%
-  knitr::kable()
-```
-
-
-
-
-### uncompressing 1 million integers
-
-uncompression speed varies slightly depending upon the compressed size.
-
-<details>
-<summary> Click here to show/hide benchmark code </summary>
-
-```{r}
-res <- bench::mark(
-  unserialize(serialize_base),
-  lz4_unserialize(serialize_lo),
-  lz4_unserialize(serialize_hi_3),
-  lz4_unserialize(serialize_hi_9),
-  lz4_unserialize(serialize_hi_12)
-)
-```
-
-</details>
-
-```{r echo = FALSE}
-res %>% 
-  mutate(`MB/s` = round(N*4/1024^2 / as.numeric(median), 1)) %>%
-  mutate(`itr/sec` = round(`itr/sec`)) %>%
-  select(expression, median, `itr/sec`, `MB/s`)  %>%
-  knitr::kable()
-```
-
-
-
 
 
 
@@ -219,32 +84,15 @@ res %>%
 * The compressed representation is the compressed data prefixed with 
   a custom 8 byte header consisting of 
     * 3 bytes = 'LZ4' 
-    * If this was produced with `lz4_serialize()` the next byte is 0x00, 
-      otherwise it is a byte representing the SEXP of the encoded object.
+    * If this was produced with `lz4_serialize()` the next byte is 'S', 
+      otherwise 'C'.
     * 4-byte length value i.e. the number of bytes in the 
       original uncompressed data.
 * This data representation 
     * is not compatible with the standard LZ4 frame 
       format.
     * is likely to evolve (so currently do not plan on compressing something in 
-      one version of `lz4lite` and uncompressing in another version.)
+      one version of `lz4lite` and decompressing in another version.)
 
 
 
-
-
-## Related Software
-
-* [lz4](https://github.com/lz4/lz4) and [zstd](https://github.com/facebook/zstd) - both by Yann Collet
-* [fst](https://github.com/fstpackage/fst) for serialisation of data.frames using
-  lz4 and zstd
-* [qs](https://cran.r-project.org/package=qs) for fast serialization of arbitrary R objects
-  with lz4 and zstd
-
-## Acknowledgements
-
-* Yann Collett for releasing, maintaining and advancing 
-[lz4](https://github.com/lz4/lz4) and [zstd](https://github.com/facebook/zstd)
-* R Core for developing and maintaining such a wonderful language.
-* CRAN maintainers, for patiently shepherding packages onto CRAN and maintaining
-  the repository

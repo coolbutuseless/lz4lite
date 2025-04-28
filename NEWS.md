@@ -1,3 +1,11 @@
+
+# lz4lite 0.3.0 2025-04-28
+
+* Remove 'HC' support
+* Update copyright
+* update to v1.10.0 of lz4 code
+* Remove non-API calls
+
 # lz4lite 0.2.1 2020-09-26
 
 * Performance: Remove a memory allocation during `lz4_serialize()`

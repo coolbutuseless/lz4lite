@@ -3,20 +3,20 @@
 #include <R.h>
 #include <Rinternals.h>
 
-extern SEXP lz4_compress_();
-extern SEXP lz4_uncompress_();
+extern SEXP lz4_compress_(SEXP src_);
+extern SEXP lz4_decompress_(SEXP src_);
 
-extern SEXP lz4_serialize_();
-extern SEXP lz4_unserialize_();
+extern SEXP lz4_serialize_(SEXP robj);
+extern SEXP lz4_unserialize_(SEXP src_);
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // .C      R_CMethodDef
 // .Call   R_CallMethodDef
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 static const R_CallMethodDef CEntries[] = {
-  {"lz4_compress_"   , (DL_FUNC) &lz4_compress_   , 4},
-  {"lz4_uncompress_" , (DL_FUNC) &lz4_uncompress_ , 1},
-  {"lz4_serialize_"  , (DL_FUNC) &lz4_serialize_  , 4},
+  {"lz4_compress_"   , (DL_FUNC) &lz4_compress_   , 1},
+  {"lz4_decompress_" , (DL_FUNC) &lz4_decompress_ , 1},
+  {"lz4_serialize_"  , (DL_FUNC) &lz4_serialize_  , 1},
   {"lz4_unserialize_", (DL_FUNC) &lz4_unserialize_, 1},
   {NULL, NULL, 0}
 };

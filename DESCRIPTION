@@ -1,13 +1,19 @@
 Package: lz4lite
 Type: Package
 Title: Extremely Fast Compression with LZ4
-Version: 0.2.0
-Author: mikefc
+Version: 0.3.0
+Authors@R: c(
+    person("Mike", "Cheng", role = c("aut", "cre", 'cph'), 
+    email = "mikefc@coolbutuseless.com"),
+    person("Yann", "Collet", role = c("cph"), 
+    comment="Author of bundled lz4 code")
+    )
 Maintainer: mikefc <mikefc@coolbutuseless.com>
 Description: Extremely fast compression of R objects with LZ4.
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
-RoxygenNote: 7.1.1
+RoxygenNote: 7.3.2
+Copyright: The included 'lz4' code is Copyright (c) 2011-2023 Yann Collet. See 'COPYRIGHTS' for LICENSE for included code.
 Suggests: 
     testthat

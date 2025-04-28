@@ -11,7 +11,6 @@
 #include <unistd.h>
 
 #include "lz4.h"
-#include "lz4hc.h"
 
 #include "buffer-static.h"
 #include "calc-size-robust.h"
@@ -21,7 +20,7 @@
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Serialize an R object
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-SEXP lz4_serialize_(SEXP robj, SEXP acceleration_, SEXP use_hc_, SEXP compressionLevel_) {
+SEXP lz4_serialize_(SEXP robj) {
 
   // Create the buffer for the serialized representation
   // See also: `expand_buffer()` which re-allocates the memory buffer if
@@ -49,7 +48,7 @@ SEXP lz4_serialize_(SEXP robj, SEXP acceleration_, SEXP use_hc_, SEXP compressio
   // Serialize the object into the output_stream
   R_Serialize(robj, &output_stream);
 
-  int srcSize = buf->pos;
+  int srcSize = (int)buf->pos;
 
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   // calculate maximum possible size of compressed buffer in the worst case
@@ -72,11 +71,7 @@ SEXP lz4_serialize_(SEXP robj, SEXP acceleration_, SEXP use_hc_, SEXP compressio
   // Compress the data into the temporary buffer
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   int num_compressed_bytes;
-  if (asLogical(use_hc_)) {
-    num_compressed_bytes = LZ4_compress_HC ((const char *)buf->data, rdstp + MAGIC_LENGTH, srcSize, dstCapacity, asInteger(compressionLevel_));
-  } else {
-    num_compressed_bytes = LZ4_compress_fast ((const char *)buf->data, rdstp + MAGIC_LENGTH, srcSize, dstCapacity, asInteger(acceleration_));
-  }
+  num_compressed_bytes = LZ4_compress_default((const char *)buf->data, rdstp + MAGIC_LENGTH, srcSize, dstCapacity);
 
   /* Watch for badness */
   if (num_compressed_bytes <= 0) {
@@ -90,7 +85,7 @@ SEXP lz4_serialize_(SEXP robj, SEXP acceleration_, SEXP use_hc_, SEXP compressio
   rdstp[0] = 'L'; /* LZ4' */
   rdstp[1] = 'Z'; /* LZ4' */
   rdstp[2] = '4'; /* LZ4' */
-  rdstp[3] =  0;  /* 0 indicates this is was created with `lz4_serialize()` and not `lz4_compress()` */
+  rdstp[3] = 'S';  /* 0 indicates this is was created with `lz4_serialize()` and not `lz4_compress()` */
 
   int *header = (int *)rdstp;
   header[1] = srcSize;
@@ -130,13 +125,9 @@ SEXP lz4_unserialize_(SEXP src_) {
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   // Check the magic bytes are correct i.e. there is a header with length info
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  if (src[0] != 'L' || src[1] != 'Z' || src[2] != '4') {
-    error("lzr_unserialize(): Buffer must be LZ4 data compressed with 'lz4lite'. 'LZ4' expected as header, but got - '%c%c%c'",
-          src[0], src[1], src[2]);
-  }
-
-  if (src[3] != 0) {
-    error("lz4_unserialize(): Input was not created with 'lz4_serialize()'.  Perhaps you meant to use 'lz4_uncompress()'?");
+  if (src[0] != 'L' || src[1] != 'Z' || src[2] != '4' || src[3] != 'S') {
+    error("lzr_unserialize(): Buffer must be LZ4 data compressed with 'lz4lite'. 'LZ40' expected as header, but got - '%c%c%c%c'",
+          src[0], src[1], src[2], src[3]);
   }
 
 
@@ -150,7 +141,7 @@ SEXP lz4_unserialize_(SEXP src_) {
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   // Create a decompression buffer of the exact required size
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  void *dst = malloc(dstCapacity);
+  void *dst = malloc((size_t)dstCapacity);
 
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   // Decompress

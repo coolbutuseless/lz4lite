@@ -20,7 +20,7 @@ static_buffer_t *init_buffer(int nbytes) {
     error("init_buffer(): cannot malloc buffer");
   }
 
-  buf->data = (unsigned char *)malloc(nbytes * sizeof(unsigned char));
+  buf->data = (unsigned char *)malloc((size_t)nbytes * sizeof(unsigned char));
   if (buf->data == NULL) {
     error("init_buffer(): cannot malloc buffer data");
   }

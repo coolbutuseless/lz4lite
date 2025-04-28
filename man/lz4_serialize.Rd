@@ -2,22 +2,15 @@
 % Please edit documentation in R/serialize.R
 \name{lz4_serialize}
 \alias{lz4_serialize}
-\alias{lz4hc_serialize}
 \alias{lz4_unserialize}
 \title{Serialize arbitrary objects to a compressed stream of bytes using LZ4}
 \usage{
-lz4_serialize(robj, acceleration = 1L)
-
-lz4hc_serialize(robj, level = 9L)
+lz4_serialize(robj)
 
 lz4_unserialize(raw_vec)
 }
 \arguments{
 \item{robj}{Any R object understood by \code{base::serialize()}}
-
-\item{acceleration}{Default: 50}
-
-\item{level}{compression level. Default: 9. Valid range 3-12}
 
 \item{raw_vec}{Raw vector containing a compressed serialized representation of
 an R object}

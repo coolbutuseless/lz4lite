@@ -3,7 +3,6 @@
 #include <Rinternals.h>
 
 #include "lz4.h"
-#include "lz4hc.h"
 
 #define MAGIC_LENGTH 8
 
@@ -14,42 +13,13 @@
 // @param acc_ acceleration. integer
 // LZ4_compress_fast (const char* src, char* dst, int srcSize, int dstCapacity, int acceleration);
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-SEXP lz4_compress_(SEXP src_, SEXP acceleration_, SEXP use_hc_, SEXP compressionLevel_) {
+SEXP lz4_compress_(SEXP src_) {
 
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   // SEXP type will determine multiplier for data size
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  int sexp_type = TYPEOF(src_);
   int srcSize   = length(src_);
-  int mult;
-  void *src;
-
-  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  // Get a pointer to the data
-  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  src = (void *)DATAPTR(src_);
-
-  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  // adjust 'srcSize' for the given datatype
-  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  switch(sexp_type) {
-  case LGLSXP:
-  case INTSXP:
-    srcSize *= 4;
-    break;
-  case REALSXP:
-    srcSize *= 8;
-    break;
-  case CPLXSXP:
-    srcSize *= 16;
-    break;
-  case RAWSXP:
-    break;
-  default:
-    error("lz4_compress() only handles numeric values in atomic vectors , not '%s'.  Try 'lz4_serialize()' instead.", Rf_type2char(sexp_type));
-  }
-
-
+  void *src = (char *)RAW(src_);
 
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   // calculate maximum possible size of compressed buffer in the worst case
@@ -63,8 +33,8 @@ SEXP lz4_compress_(SEXP src_, SEXP acceleration_, SEXP use_hc_, SEXP compression
   //  - 1 byte: SEXP type
   //  - 4 bytes: Number of bytes of uncompressed data (32 bit integer)
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  SEXP rdst = PROTECT(allocVector(RAWSXP, dstCapacity + MAGIC_LENGTH));
-  char *dst = (char *)RAW(rdst);
+  SEXP dst_ = PROTECT(allocVector(RAWSXP, dstCapacity + MAGIC_LENGTH));
+  char *dst = (char *)RAW(dst_);
 
 
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -73,11 +43,7 @@ SEXP lz4_compress_(SEXP src_, SEXP acceleration_, SEXP use_hc_, SEXP compression
   //in case of an error
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   int num_compressed_bytes;
-  if (asLogical(use_hc_)) {
-    num_compressed_bytes = LZ4_compress_HC(src, dst + MAGIC_LENGTH, srcSize, dstCapacity, asInteger(compressionLevel_));
-  } else {
-    num_compressed_bytes = LZ4_compress_fast(src, dst + MAGIC_LENGTH, srcSize, dstCapacity, asInteger(acceleration_));
-  }
+  num_compressed_bytes = LZ4_compress_default(src, dst + MAGIC_LENGTH, srcSize, dstCapacity);
 
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   // Watch for compression failure
@@ -92,7 +58,7 @@ SEXP lz4_compress_(SEXP src_, SEXP acceleration_, SEXP use_hc_, SEXP compression
   dst[0] = 'L'; /* 'LZ4' */
   dst[1] = 'Z'; /* 'LZ4' */
   dst[2] = '4'; /* 'LZ4' */
-  dst[3] = (char)sexp_type;    /* Store SEXP type here */
+  dst[3] = 'C';
 
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   // Put the total uncompressed size as the second 4 bytes
@@ -103,10 +69,10 @@ SEXP lz4_compress_(SEXP src_, SEXP acceleration_, SEXP use_hc_, SEXP compression
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   // Adjust actual length of compressed data
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  SETLENGTH(rdst, num_compressed_bytes + MAGIC_LENGTH);
+  dst_ = PROTECT(Rf_lengthgets(dst_, num_compressed_bytes + MAGIC_LENGTH));
 
-  UNPROTECT(1);
-  return rdst;
+  UNPROTECT(2);
+  return dst_;
 }
 
 
@@ -119,7 +85,7 @@ SEXP lz4_compress_(SEXP src_, SEXP acceleration_, SEXP use_hc_, SEXP compression
 //
 // int LZ4_decompress_safe (const char* src, char* dst, int compressedSize, int dstCapacity);
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-SEXP lz4_uncompress_(SEXP src_) {
+SEXP lz4_decompress_(SEXP src_) {
 
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   // Some pointers into the buffer
@@ -130,8 +96,8 @@ SEXP lz4_uncompress_(SEXP src_) {
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   // Check the magic bytes are correct i.e. there is a header with length info
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  if (src[0] != 'L' || src[1] != 'Z' || src[2] != '4') {
-    error("Buffer must be LZ4 data compressed with 'lz4lite'. 'LZ4' expected as header, but got - '%c%c%c'", src[0], src[1], src[2]);
+  if (src[0] != 'L' || src[1] != 'Z' || src[2] != '4' || src[3] != 'C') {
+    error("Buffer must be LZ4 data compressed with 'lz4lite'. 'LZ4C' expected as header, but got - '%c%c%c%c'", src[0], src[1], src[2], src[3]);
   }
 
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -145,34 +111,9 @@ SEXP lz4_uncompress_(SEXP src_) {
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   // Create a decompression buffer of the exact required size and do decompression
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  SEXP dst_;
-  void *dst;
-  int sexp_type = src[3];
+  SEXP dst_ = PROTECT(allocVector(RAWSXP, dstCapacity));
+  void *dst = (void *)RAW(dst_);
 
-  switch(sexp_type) {
-  case LGLSXP:
-    dst_ = PROTECT(allocVector(LGLSXP, dstCapacity/4));
-    dst = (void *)LOGICAL(dst_);
-    break;
-  case INTSXP:
-    dst_ = PROTECT(allocVector(INTSXP, dstCapacity/4));
-    dst = (void *)INTEGER(dst_);
-    break;
-  case REALSXP:
-    dst_ = PROTECT(allocVector(REALSXP, dstCapacity/8));
-    dst = (void *)REAL(dst_);
-    break;
-  case RAWSXP:
-    dst_ = PROTECT(allocVector(RAWSXP, dstCapacity));
-    dst = (void *)RAW(dst_);
-    break;
-  case CPLXSXP:
-    dst_ = PROTECT(allocVector(CPLXSXP, dstCapacity/16));
-    dst = (void *)COMPLEX(dst_);
-    break;
-  default:
-    error("decompress() cannot handles SEXP type: %i\n", sexp_type);
-  }
 
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   // Deompression function returns an integer, which is non-zero, positive
