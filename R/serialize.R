@@ -12,7 +12,7 @@
 #' @export
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 lz4_serialize <- function(robj) {
-  .Call('lz4_serialize_', robj)
+  .Call(lz4_serialize_, robj)
 }
 
 
@@ -22,6 +22,33 @@ lz4_serialize <- function(robj) {
 #' @export
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 lz4_unserialize <- function(raw_vec) {
-  .Call('lz4_unserialize_', raw_vec)
+  .Call(lz4_unserialize_, raw_vec)
 }
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#' Serialize to file, raw or connection
+#' 
+#' @param dst filename (character), raw()/NULL for raw vector 
+#' @param src data source for unserialization. file, or raw_vector()
+#' @param x R object
+#' 
+#' @export
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+lz4_serialize_stream <- function(x, dst) {
+  .Call(lz4_serialize_stream_, x, dst)
+}
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#' @rdname lz4_serialize_stream
+#' @export
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+lz4_unserialize_stream <- function(src) {
+  .Call(lz4_unserialize_stream_, src)
+}
+
+
+
+
 
