@@ -11,8 +11,6 @@
 
 #include "lz4.h"
 
-#include "buffer-static.h"
-#include "calc-size-robust.h"
 
 #define MAGIC_LENGTH 8
 
@@ -63,8 +61,14 @@ void write_byte_stream(R_outpstream_t stream, int c) {
 void write_bytes_stream(R_outpstream_t stream, void *src, int length) {
   dbuf_t *db = (dbuf_t *)stream->data;
   
+  // uint8_t *p = (uint8_t *)src;
+  // for (int i = 0; i < length; i++) {
+  //   Rprintf("%02x ", p[i]);
+  // }
+  // Rprintf("\n");
   
   if (db->pos + length > BUF_SIZE) {
+    Rprintf("<<<<<<<<<<<<<<< internal\n");
     fwrite(&db->pos, 1, sizeof(uint32_t), db->file);
     fwrite(db->buf[db->idx], 1, db->pos, db->file);
     db->pos = 0;
@@ -73,8 +77,8 @@ void write_bytes_stream(R_outpstream_t stream, void *src, int length) {
   
   
   // Append data
-  db->pos += length;
   memcpy(db->buf[db->idx] + db->pos, src, length);
+  db->pos += length;
   
 }
 
@@ -143,8 +147,31 @@ int read_byte_stream(R_inpstream_t stream) {
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void read_bytes_stream(R_inpstream_t stream, void *dst, int length) {
   dbuf_t *db = (dbuf_t *)stream->data;
-  // memcpy(dst, buf->data + buf->pos, length);
+  
+  // Rprintf("\n[00] %i\n", length);
+  if (db->pos + length > db->data_length) {
+    // copy across available bytes
+    // replenish buffer
+    int nbytes = db->data_length - db->pos;
+    // Rprintf("SAT Nbytes: %i\n", nbytes);
+    memcpy(dst, db->buf[db->idx] + db->pos, nbytes);
+    length -= nbytes;
+    
+    db->pos = 0;
+    db->idx = 1 - db->idx;
+    fread(&db->data_length, 1, sizeof(uint32_t), db->file);
+    // Rprintf("data_length: %i\n", db->data_length);
+    unsigned long nread = fread(db->buf[db->idx], 1, db->data_length, db->file);
+    if (nread != db->data_length) {
+      // Rf_error("Read failed: %i/%i", (int)nread, db->data_length);
+    }
+  }
+  
+  // copy across bytes
+  memcpy(dst, db->buf[db->idx] + db->pos, length);
   db->pos += length;
+  
+  // Rprintf("Read outtro: %i\n", db->pos);
 }
 
 
@@ -178,8 +205,8 @@ SEXP lz4_unserialize_stream_(SEXP src_) {
     &input_stream,           // Stream object wrapping data buffer
     (R_pstream_data_t) db,  // Actual data buffer
     R_pstream_any_format,    // Unpack all serialized types
-    read_byte,               // Function to read single byte from buffer
-    read_bytes,              // Function for reading multiple bytes from buffer
+    read_byte_stream,        // Function to read single byte from buffer
+    read_bytes_stream,       // Function for reading multiple bytes from buffer
     NULL,                    // Func for special handling of reference data.
     NULL                     // Data related to reference data handling
   );
