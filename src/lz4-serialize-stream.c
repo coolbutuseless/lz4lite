@@ -26,10 +26,27 @@ typedef struct {
   int fmode;
   uint8_t buf[2][BUF_SIZE];
   int idx;
-  int nbytes;
-  int nwritten;
-  size_t pos;
+  uint32_t pos;
+  uint32_t data_length;
 } dbuf_t;
+
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// 
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+void db_destroy(dbuf_t *db) {
+  if (db->file != NULL) {
+    if (db->fmode == FMODE_WRITE) {
+      fwrite(&db->pos, 1, sizeof(uint32_t), db->file);
+      fwrite(db->buf[db->idx], 1, db->pos, db->file);
+    }
+    fclose(db->file);
+  } else {
+    Rf_error("Unknown output in 'db_flush()");
+  }
+  
+  free(db);
+}
 
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -39,11 +56,6 @@ void write_byte_stream(R_outpstream_t stream, int c) {
   Rf_error("'write_byte_stream()' is never called");
 }
 
-int read_byte_stream(R_inpstream_t stream) {
-  Rf_error("'read_byte_stream()' is never called");
-  return 0;
-}
-
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Write multiple bytes into the buffer at the current location.
@@ -51,12 +63,9 @@ int read_byte_stream(R_inpstream_t stream) {
 void write_bytes_stream(R_outpstream_t stream, void *src, int length) {
   dbuf_t *db = (dbuf_t *)stream->data;
   
-  db->nbytes += length;
   
   if (db->pos + length > BUF_SIZE) {
-    // Write buffer
-    Rprintf("switch\n");
-    db->nwritten += db->pos;
+    fwrite(&db->pos, 1, sizeof(uint32_t), db->file);
     fwrite(db->buf[db->idx], 1, db->pos, db->file);
     db->pos = 0;
     db->idx = 1 - db->idx;
@@ -69,34 +78,6 @@ void write_bytes_stream(R_outpstream_t stream, void *src, int length) {
   
 }
 
-
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// Read multiple bytes from the serialized stream
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-void read_bytes_stream(R_inpstream_t stream, void *dst, int length) {
-  dbuf_t *db = (dbuf_t *)stream->data;
-  // memcpy(dst, buf->data + buf->pos, length);
-  db->pos += length;
-}
-
-
-
-
-void db_destroy(dbuf_t *db) {
-  if (db->file != NULL) {
-    if (db->fmode == FMODE_WRITE) {
-      fwrite(db->buf[db->idx], 1, db->pos, db->file);
-    }
-    fclose(db->file);
-  } else {
-    Rf_error("Unknown output in 'db_flush()");
-  }
-  
-  db->nwritten += db->pos;
-  Rprintf("Bytes: %i / %i\n", db->nbytes, db->nwritten);
-  
-  free(db);
-}
 
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -146,73 +127,56 @@ SEXP lz4_serialize_stream_(SEXP x_, SEXP dst_) {
 
 
 
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Never called
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+int read_byte_stream(R_inpstream_t stream) {
+  Rf_error("'read_byte_stream()' is never called");
+  return 0;
+}
+
+
+
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Read multiple bytes from the serialized stream
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+void read_bytes_stream(R_inpstream_t stream, void *dst, int length) {
+  dbuf_t *db = (dbuf_t *)stream->data;
+  // memcpy(dst, buf->data + buf->pos, length);
+  db->pos += length;
+}
+
+
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // Unpack a raw vector to an R object
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 SEXP lz4_unserialize_stream_(SEXP src_) {
 
-  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  // Sanity check
-  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  if (TYPEOF(src_) != RAWSXP) {
-    Rf_error("unpack(): Only raw vectors can be unserialized");
+  dbuf_t *db = calloc(1, sizeof(dbuf_t));
+  if (db == NULL) {
+    Rf_error("Couldn't allocate double buffer");
+  }
+  
+  if (TYPEOF(src_) == STRSXP) {
+    const char *filename = CHAR(STRING_ELT(src_, 0));
+    db->file = fopen(filename, "rb");
+    if (db->file == NULL) {
+      Rf_error("Couldn't open file for uboyt: '%s'", filename);
+    }
+    db->fmode = FMODE_READ;
+  } else {
+    Rf_error("Don't know how to deal with 'src' of type: [%i] %s", 
+             TYPEOF(src_), Rf_type2char(TYPEOF(src_)));
   }
 
-  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  // A C pointer into the raw data
-  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  const char *src = (const char *)RAW(src_);
-  const int *isrc = (const int *)src;
-
-  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  // Check the magic bytes are correct i.e. there is a header with length info
-  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  if (src[0] != 'L' || src[1] != 'Z' || src[2] != '4' || src[3] != 'S') {
-    Rf_error("lzr_unserialize(): Buffer must be LZ4 data compressed with 'lz4lite'. 'LZ40' expected as header, but got - '%c%c%c%c'",
-          src[0], src[1], src[2], src[3]);
-  }
-
-
-  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  // Find the number of bytes of compressed data in the frame
-  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  int compressedSize = Rf_length(src_) - MAGIC_LENGTH;
-  int dstCapacity = isrc[1];
-
-
-  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  // Create a decompression buffer of the exact required size
-  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  void *dst = malloc((size_t)dstCapacity);
-
-  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  // Decompress
-  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  int status = LZ4_decompress_safe(src + MAGIC_LENGTH, dst, compressedSize, dstCapacity);
-
-  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  // Watch for decompression errors
-  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  if (status <= 0) {
-    Rf_error("lz4_unserialize(): De-compression error. Status: %i", status);
-  }
-
-
-  // Create a buffer object which points to the raw data
-  static_buffer_t *buf = malloc(sizeof(static_buffer_t));
-  if (buf == NULL) {
-    Rf_error("'buf' malloc failed!");
-  }
-  buf->length = dstCapacity;
-  buf->pos    = 0;
-  buf->data   = dst;
 
   // Treat the data buffer as an input stream
   struct R_inpstream_st input_stream;
 
   R_InitInPStream(
     &input_stream,           // Stream object wrapping data buffer
-    (R_pstream_data_t) buf,  // Actual data buffer
+    (R_pstream_data_t) db,  // Actual data buffer
     R_pstream_any_format,    // Unpack all serialized types
     read_byte,               // Function to read single byte from buffer
     read_bytes,              // Function for reading multiple bytes from buffer
@@ -223,7 +187,7 @@ SEXP lz4_unserialize_stream_(SEXP src_) {
   // Unserialize the input_stream into an R object
   SEXP res_  = PROTECT(R_Unserialize(&input_stream));
 
-  free(buf);
+  db_destroy(db);
   UNPROTECT(1);
   return res_;
 }

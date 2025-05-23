@@ -49,6 +49,16 @@ lz4_unserialize_stream <- function(src) {
 }
 
 
-
+if (FALSE) {
+  
+  tmp <- tempfile()
+  set.seed(1)
+  df <- penguins[sample(nrow(penguins), 10000, T), ]
+  lz4_serialize_stream(df, tmp)
+  file.size(tmp)
+  serialize(df, NULL) |> length()
+  
+  
+}
 
 
