@@ -11,6 +11,8 @@
 
 #include "lz4.h"
 
+#define USE_LZ4
+
 
 #define BUF_SIZE 512 * 1024
 #define FMODE_READ  0
@@ -45,9 +47,9 @@ void db_destroy(dbuf_t *db) {
     if (db->fmode == FMODE_WRITE) {
 #ifdef USE_LZ4
       int comp_len = LZ4_compress_fast_continue(
-        db->stream_in,     // Stream
-        db->buf[db->idx],  // Source Raw Buffer
-               db->comp,          // Dest Compressed buffer
+        db->stream_out,     // Stream
+        (const char *)db->buf[db->idx],  // Source Raw Buffer
+        (char *)db->comp,          // Dest Compressed buffer
                db->pos,           // Source size
                db->comp_capacity, // dstCapacity
                1                  // acceleration
@@ -105,9 +107,9 @@ void write_bytes_stream(R_outpstream_t stream, void *src, int length) {
 #ifdef USE_LZ4
     
     int comp_len = LZ4_compress_fast_continue(
-      db->stream_in,     // Stream
-      db->buf[db->idx],  // Source Raw Buffer
-      db->comp,          // Dest Compressed buffer
+      db->stream_out,     // Stream
+      (const char *)db->buf[db->idx],  // Source Raw Buffer
+      (char *)db->comp,          // Dest Compressed buffer
       db->pos,           // Source size
       db->comp_capacity, // dstCapacity
       1                  // acceleration
@@ -238,11 +240,14 @@ void read_bytes_stream(R_inpstream_t stream, void *dst, int length) {
     fread(db->comp, 1, comp_len, db->file);
     int res = LZ4_decompress_safe_continue(
       db->stream_in, 
-      db->comp, 
-      db->buf[db->idx],
+      (const char *)db->comp, 
+      (char *)db->buf[db->idx],
       comp_len,
       BUF_SIZE
     );
+    if (res < 0) {
+      Rf_error("Lz4 decompression error %i", res);
+    }
     
 #else
     fread(&db->data_length, 1, sizeof(uint32_t), db->file);
