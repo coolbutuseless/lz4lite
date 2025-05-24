@@ -5,9 +5,9 @@
 \alias{lz4_unserialize}
 \title{Serialize to file, raw or connection}
 \usage{
-lz4_serialize(x, dst = NULL, acc = 1L)
+lz4_serialize(x, dst = NULL, acc = 1L, dict = NULL)
 
-lz4_unserialize(src)
+lz4_unserialize(src, dict = NULL)
 }
 \arguments{
 \item{x}{R object}
@@ -16,6 +16,8 @@ lz4_unserialize(src)
 
 \item{acc}{accerlation. Default 1. Valid range [1, 65535].  Higher values
 means faster compression, but larger compressed size.}
+
+\item{dict}{dictionary. raw vector. NULL for no dictionary.}
 
 \item{src}{data source for unserialization. file, or raw_vector()}
 }

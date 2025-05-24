@@ -7,12 +7,13 @@
 #' @param src data source for unserialization. file, or raw_vector()
 #' @param acc accerlation. Default 1. Valid range [1, 65535].  Higher values
 #'        means faster compression, but larger compressed size.
+#' @param dict dictionary. raw vector. NULL for no dictionary.
 #' @param x R object
 #' 
 #' @export
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-lz4_serialize <- function(x, dst = NULL, acc = 1L) {
-  res <- .Call(lz4_serialize_, x, dst, acc)
+lz4_serialize <- function(x, dst = NULL, acc = 1L, dict = NULL) {
+  res <- .Call(lz4_serialize_, x, dst, acc, dict)
   if (is.null(dst) || is.raw(dst)) {
     res
   } else {
@@ -25,8 +26,8 @@ lz4_serialize <- function(x, dst = NULL, acc = 1L) {
 #' @rdname lz4_serialize
 #' @export
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-lz4_unserialize <- function(src) {
-  .Call(lz4_unserialize_, src)
+lz4_unserialize <- function(src, dict = NULL) {
+  .Call(lz4_unserialize_, src, dict)
 }
 
 

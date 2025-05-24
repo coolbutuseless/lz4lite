@@ -201,7 +201,7 @@ void write_bytes_stream(R_outpstream_t stream, void *src, int length) {
 //  #   #  #      #        #    #   #    #      #     #     #     
 //   ###    ###   #       ###    ####   ###    ###   #####   ###  
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-SEXP lz4_serialize_(SEXP x_, SEXP dst_, SEXP acc_) {
+SEXP lz4_serialize_(SEXP x_, SEXP dst_, SEXP acc_, SEXP dict_) {
   
   dbuf_t *db = calloc(1, sizeof(dbuf_t));
   if (db == NULL) {
@@ -337,7 +337,7 @@ void read_bytes_stream(R_inpstream_t stream, void *dst, int length) {
 //  #   #  #   #      #  #      #        #    #   #    #      #     #     #     
 //   ###   #   #  ####    ###   #       ###    ####   ###    ###   #####   ###  
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-SEXP lz4_unserialize_(SEXP src_) {
+SEXP lz4_unserialize_(SEXP src_, SEXP dict_) {
 
   dbuf_t *db = calloc(1, sizeof(dbuf_t));
   if (db == NULL) {
