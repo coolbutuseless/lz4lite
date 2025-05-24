@@ -76,15 +76,30 @@ void db_destroy(dbuf_t *db) {
       fwrite(&db->pos, 1, sizeof(uint32_t), db->file); // Write raw length
       fwrite(&comp_len, 1, sizeof(int32_t), db->file); // write compressed length
       fwrite(db->comp, 1, comp_len, db->file);  // Write compressed buffer
+    } else if (db->mode & MODE_RAW) {
+      
+      if (db->raw_pos + 2 * sizeof(uint32_t) + comp_len >= db->raw_capacity) {
+        db->raw_capacity *= 2;
+        db->raw = realloc(db->raw, db->raw_capacity);
+      }
+      
+      memcpy(db->raw + db->raw_pos, &db->pos, sizeof(uint32_t)); db->raw_pos += sizeof(uint32_t);
+      memcpy(db->raw + db->raw_pos, &comp_len, sizeof(int32_t)); db->raw_pos += sizeof(int32_t);
+      memcpy(db->raw + db->raw_pos, db->comp, comp_len); db->raw_pos += comp_len;
+      
     } else {
-      Rf_error("db_destory(): MODE_RAW not done yet");
-    }      
+      Rf_error("write_bytes_stream(): 000");
+    }    
     
   }
   
   if (db->mode & MODE_FILE && db->mode & MODE_SERIALIZE) {
     fclose(db->file);
-  } 
+  }
+  
+  if (db->mode & MODE_RAW && db->mode & MODE_SERIALIZE) {
+    free(db->raw);
+  }
   
   if (db->mode & MODE_SERIALIZE) {
     LZ4_freeStream(db->stream_out);
@@ -94,7 +109,7 @@ void db_destroy(dbuf_t *db) {
     LZ4_freeStreamDecode(db->stream_in);
   }
   
-  
+  free(db->comp);
   free(db);
 }
 
@@ -131,9 +146,25 @@ void write_bytes_stream(R_outpstream_t stream, void *src, int length) {
       db->acceleration                 // acceleration
     );
     if (comp_len < 0) Rf_error("Error compression lz4");
-    fwrite(&db->pos, 1, sizeof(uint32_t), db->file); // Write raw length
-    fwrite(&comp_len, 1, sizeof(int32_t), db->file); // write compressed length
-    fwrite(db->comp, 1, comp_len, db->file);  // Write compressed buffer
+    
+    if (db->mode & MODE_FILE) {
+      fwrite(&db->pos, 1, sizeof(uint32_t), db->file); // Write raw length
+      fwrite(&comp_len, 1, sizeof(int32_t), db->file); // write compressed length
+      fwrite(db->comp, 1, comp_len, db->file);  // Write compressed buffer
+    } else if (db->mode & MODE_RAW) {
+      
+      if (db->raw_pos + 2 * sizeof(uint32_t) + comp_len >= db->raw_capacity) {
+        db->raw_capacity *= 2;
+        db->raw = realloc(db->raw, db->raw_capacity);
+      }
+      
+      memcpy(db->raw + db->raw_pos, &db->pos, sizeof(uint32_t)); db->raw_pos += sizeof(uint32_t);
+      memcpy(db->raw + db->raw_pos, &comp_len, sizeof(int32_t)); db->raw_pos += sizeof(int32_t);
+      memcpy(db->raw + db->raw_pos, db->comp, comp_len); db->raw_pos += comp_len;
+      
+    } else {
+      Rf_error("write_bytes_stream(): 000");
+    }
     
     db->idx = 1 - db->idx; // switch buffers
     db->pos = 0;           // reset buffer position
@@ -173,12 +204,18 @@ SEXP lz4_serialize_stream_(SEXP x_, SEXP dst_, SEXP acc_) {
   db->mode = MODE_SERIALIZE;
   
   if (TYPEOF(dst_) == STRSXP) {
+    db->mode |= MODE_FILE;
     const char *filename = CHAR(STRING_ELT(dst_, 0));
     db->file = fopen(filename, "wb");
     if (db->file == NULL) {
       Rf_error("Couldn't open file for output: '%s'", filename);
     }
-    db->mode |= MODE_FILE;
+  } else if (Rf_isNull(dst_) || TYPEOF(dst_) == RAWSXP) {
+    db->mode |= MODE_RAW;
+    db->raw = malloc(BUF_SIZE);
+    if (db->raw == NULL) Rf_error("Couldn't initialize raw buffer");
+    db->raw_pos = 0;
+    db->raw_capacity = BUF_SIZE;
   } else {
     Rf_error("Don't know how to deal with 'dst' of type: [%i] %s", 
              TYPEOF(dst_), Rf_type2char(TYPEOF(dst_)));
