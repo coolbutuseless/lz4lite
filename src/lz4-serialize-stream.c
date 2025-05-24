@@ -15,17 +15,18 @@
 #define BUF_SIZE 512 * 1024
 
 // Source / Destination mode
-#define MODE_RAW  0
-#define MODE_FILE 1
+#define MODE_RAW    1
+#define MODE_FILE   2
 
-// File modes
-#define FMODE_READ  0
-#define FMODE_WRITE 1
+// Direction modes
+#define MODE_UNSERIALIZE   8
+#define MODE_SERIALIZE    16                                           
 
 typedef struct {
+  int mode;
+  
   // For file output
   FILE *file;
-  int fmode;
   
   // For raw vector output
   uint8_t *raw;
@@ -57,33 +58,39 @@ typedef struct {
 //     ###    ###   #   #    ##    ###   #   #    ##  
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void db_destroy(dbuf_t *db) {
-  if (db->file != NULL) {
-    if (db->fmode == FMODE_WRITE) {
-      
-      int comp_len = LZ4_compress_fast_continue(
-        db->stream_out,                  // Stream
-        (const char *)db->buf[db->idx],  // Source Raw Buffer
-        (char *)db->comp,                // Dest Compressed buffer
-               db->pos,                  // Source size
-               db->comp_capacity,        // dstCapacity
-               db->acceleration
-      );
-      if (comp_len < 0) Rf_error("Error compression lz4");
+  
+  // When serializing, flush the write buffers
+  if (db->mode & MODE_SERIALIZE) {
+    
+    int comp_len = LZ4_compress_fast_continue(
+      db->stream_out,                  // Stream
+      (const char *)db->buf[db->idx],  // Source Raw Buffer
+                           (char *)db->comp,                // Dest Compressed buffer
+                           db->pos,                  // Source size
+                           db->comp_capacity,        // dstCapacity
+                           db->acceleration
+    );
+    if (comp_len < 0) Rf_error("Error compression lz4");
+    
+    if (db->mode & MODE_FILE) {
       fwrite(&db->pos, 1, sizeof(uint32_t), db->file); // Write raw length
       fwrite(&comp_len, 1, sizeof(int32_t), db->file); // write compressed length
       fwrite(db->comp, 1, comp_len, db->file);  // Write compressed buffer
-      
-    }
-    fclose(db->file);
-  } else {
-    Rf_error("Unknown output in 'db_flush()");
+    } else {
+      Rf_error("db_destory(): MODE_RAW not done yet");
+    }      
+    
   }
   
-  if (db->stream_out != NULL) {
+  if (db->mode & MODE_FILE && db->mode & MODE_SERIALIZE) {
+    fclose(db->file);
+  } 
+  
+  if (db->mode & MODE_SERIALIZE) {
     LZ4_freeStream(db->stream_out);
   }
   
-  if (db->stream_in != NULL) {
+  if (db->mode & MODE_UNSERIALIZE) {
     LZ4_freeStreamDecode(db->stream_in);
   }
   
@@ -163,6 +170,7 @@ SEXP lz4_serialize_stream_(SEXP x_, SEXP dst_, SEXP acc_) {
   }
   
   db->acceleration = Rf_asInteger(acc_);
+  db->mode = MODE_SERIALIZE;
   
   if (TYPEOF(dst_) == STRSXP) {
     const char *filename = CHAR(STRING_ELT(dst_, 0));
@@ -170,7 +178,7 @@ SEXP lz4_serialize_stream_(SEXP x_, SEXP dst_, SEXP acc_) {
     if (db->file == NULL) {
       Rf_error("Couldn't open file for output: '%s'", filename);
     }
-    db->fmode = FMODE_WRITE;
+    db->mode |= MODE_FILE;
   } else {
     Rf_error("Don't know how to deal with 'dst' of type: [%i] %s", 
              TYPEOF(dst_), Rf_type2char(TYPEOF(dst_)));
@@ -278,13 +286,15 @@ SEXP lz4_unserialize_stream_(SEXP src_) {
     Rf_error("Couldn't allocate double buffer");
   }
   
+  db->mode = MODE_UNSERIALIZE;
+  
   if (TYPEOF(src_) == STRSXP) {
     const char *filename = CHAR(STRING_ELT(src_, 0));
     db->file = fopen(filename, "rb");
     if (db->file == NULL) {
       Rf_error("Couldn't open file for input: '%s'", filename);
     }
-    db->fmode = FMODE_READ;
+    db->mode |= MODE_FILE;
   } else {
     Rf_error("Don't know how to deal with 'src' of type: [%i] %s", 
              TYPEOF(src_), Rf_type2char(TYPEOF(src_)));
