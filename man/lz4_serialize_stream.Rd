@@ -5,7 +5,7 @@
 \alias{lz4_unserialize_stream}
 \title{Serialize to file, raw or connection}
 \usage{
-lz4_serialize_stream(x, dst)
+lz4_serialize_stream(x, dst, acc = 1L)
 
 lz4_unserialize_stream(src)
 }
@@ -13,6 +13,9 @@ lz4_unserialize_stream(src)
 \item{x}{R object}
 
 \item{dst}{filename (character), raw()/NULL for raw vector}
+
+\item{acc}{accerlation. Default 1. Valid range [1, 65535].  Higher values
+means faster compression, but larger compressed size.}
 
 \item{src}{data source for unserialization. file, or raw_vector()}
 }

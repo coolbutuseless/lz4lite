@@ -2,8 +2,6 @@
 
 export(lz4_compress)
 export(lz4_decompress)
-export(lz4_serialize)
 export(lz4_serialize_stream)
-export(lz4_unserialize)
 export(lz4_unserialize_stream)
 useDynLib(lz4lite, .registration=TRUE)

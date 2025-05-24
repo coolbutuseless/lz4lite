@@ -1,42 +1,18 @@
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#' Serialize arbitrary objects to a compressed stream of bytes using LZ4
-#'
-#' @param robj Any R object understood by \code{base::serialize()}
-#' @param raw_vec Raw vector containing a compressed serialized representation of
-#'        an R object
-#'
-#' @return serialized representation compressed into a raw byte vector
-#'
-#' @export
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-lz4_serialize <- function(robj) {
-  .Call(lz4_serialize_, robj)
-}
-
-
-
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#' @rdname lz4_serialize
-#' @export
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-lz4_unserialize <- function(raw_vec) {
-  .Call(lz4_unserialize_, raw_vec)
-}
-
-
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #' Serialize to file, raw or connection
 #' 
 #' @param dst filename (character), raw()/NULL for raw vector 
 #' @param src data source for unserialization. file, or raw_vector()
+#' @param acc accerlation. Default 1. Valid range [1, 65535].  Higher values
+#'        means faster compression, but larger compressed size.
 #' @param x R object
 #' 
 #' @export
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-lz4_serialize_stream <- function(x, dst) {
-  .Call(lz4_serialize_stream_, x, dst)
+lz4_serialize_stream <- function(x, dst, acc = 1L) {
+  .Call(lz4_serialize_stream_, x, dst, acc)
 }
 
 

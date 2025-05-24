@@ -6,10 +6,7 @@
 extern SEXP lz4_compress_(SEXP src_);
 extern SEXP lz4_decompress_(SEXP src_);
 
-extern SEXP lz4_serialize_(SEXP robj);
-extern SEXP lz4_unserialize_(SEXP src_);
-
-extern SEXP lz4_serialize_stream_(SEXP x_, SEXP dst_);
+extern SEXP lz4_serialize_stream_(SEXP x_, SEXP dst_, SEXP acc_);
 extern SEXP lz4_unserialize_stream_(SEXP src_);
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -20,10 +17,7 @@ static const R_CallMethodDef CEntries[] = {
   {"lz4_compress_"   , (DL_FUNC) &lz4_compress_   , 1},
   {"lz4_decompress_" , (DL_FUNC) &lz4_decompress_ , 1},
   
-  {"lz4_serialize_"  , (DL_FUNC) &lz4_serialize_  , 1},
-  {"lz4_unserialize_", (DL_FUNC) &lz4_unserialize_, 1},
-  
-  {"lz4_serialize_stream_"  , (DL_FUNC) &lz4_serialize_stream_  , 2},
+  {"lz4_serialize_stream_"  , (DL_FUNC) &lz4_serialize_stream_  , 3},
   {"lz4_unserialize_stream_", (DL_FUNC) &lz4_unserialize_stream_, 1},
   
   {NULL, NULL, 0}

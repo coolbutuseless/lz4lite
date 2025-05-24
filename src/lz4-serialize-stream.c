@@ -25,8 +25,10 @@ typedef struct {
   int idx;
   uint32_t pos;
   uint32_t data_length;
+  
   LZ4_stream_t       *stream_out;
   LZ4_streamDecode_t *stream_in;
+  int acceleration;
   
   uint8_t *comp;
   int comp_capacity;
@@ -47,12 +49,12 @@ void db_destroy(dbuf_t *db) {
     if (db->fmode == FMODE_WRITE) {
 #ifdef USE_LZ4
       int comp_len = LZ4_compress_fast_continue(
-        db->stream_out,     // Stream
+        db->stream_out,                  // Stream
         (const char *)db->buf[db->idx],  // Source Raw Buffer
-        (char *)db->comp,          // Dest Compressed buffer
-               db->pos,           // Source size
-               db->comp_capacity, // dstCapacity
-               1                  // acceleration
+        (char *)db->comp,                // Dest Compressed buffer
+               db->pos,                  // Source size
+               db->comp_capacity,        // dstCapacity
+               db->acceleration
       );
       if (comp_len < 0) Rf_error("Error compression lz4");
       fwrite(&db->pos, 1, sizeof(uint32_t), db->file); // Write raw length
@@ -107,12 +109,12 @@ void write_bytes_stream(R_outpstream_t stream, void *src, int length) {
 #ifdef USE_LZ4
     
     int comp_len = LZ4_compress_fast_continue(
-      db->stream_out,     // Stream
+      db->stream_out,                  // Stream
       (const char *)db->buf[db->idx],  // Source Raw Buffer
-      (char *)db->comp,          // Dest Compressed buffer
-      db->pos,           // Source size
-      db->comp_capacity, // dstCapacity
-      1                  // acceleration
+      (char *)db->comp,                // Dest Compressed buffer
+      db->pos,                         // Source size
+      db->comp_capacity,               // dstCapacity
+      db->acceleration                 // acceleration
     );
     if (comp_len < 0) Rf_error("Error compression lz4");
     fwrite(&db->pos, 1, sizeof(uint32_t), db->file); // Write raw length
@@ -150,12 +152,14 @@ void write_bytes_stream(R_outpstream_t stream, void *src, int length) {
 //  #   #  #      #        #    #   #    #      #     #     #     
 //   ###    ###   #       ###    ####   ###    ###   #####   ###  
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-SEXP lz4_serialize_stream_(SEXP x_, SEXP dst_) {
+SEXP lz4_serialize_stream_(SEXP x_, SEXP dst_, SEXP acc_) {
   
   dbuf_t *db = calloc(1, sizeof(dbuf_t));
   if (db == NULL) {
     Rf_error("Couldn't allocate double buffer");
   }
+  
+  db->acceleration = Rf_asInteger(acc_);
   
   if (TYPEOF(dst_) == STRSXP) {
     const char *filename = CHAR(STRING_ELT(dst_, 0));
@@ -239,11 +243,11 @@ void read_bytes_stream(R_inpstream_t stream, void *dst, int length) {
     fread(&comp_len, 1, sizeof(int32_t), db->file);
     fread(db->comp, 1, comp_len, db->file);
     int res = LZ4_decompress_safe_continue(
-      db->stream_in, 
-      (const char *)db->comp, 
-      (char *)db->buf[db->idx],
-      comp_len,
-      BUF_SIZE
+      db->stream_in,             // Stream
+      (const char *)db->comp,    // Src compressed buffer
+      (char *)db->buf[db->idx],  // Dst raw buffer
+      comp_len,                  // Src size
+      BUF_SIZE                   // Compressed size
     );
     if (res < 0) {
       Rf_error("Lz4 decompression error %i", res);
