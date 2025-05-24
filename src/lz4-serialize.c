@@ -7,6 +7,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <unistd.h>
 
 #include "lz4.h"
@@ -47,6 +48,8 @@ typedef struct {
   int acceleration;                // range [1, 65535]
   uint8_t *comp;                   // compressed buffer
   int comp_capacity;               // capacity of compressed buffer
+  
+  bool checked_magic;
 } dbuf_t;
 
 
@@ -265,6 +268,14 @@ SEXP lz4_serialize_(SEXP x_, SEXP dst_, SEXP acc_, SEXP dict_) {
     Rf_error("Dictionary must be raw() vector or NULL");
   }
   
+  // Write magic
+  char *magic = "LZ4S";
+  if (db->mode & MODE_FILE) {
+    fwrite(magic, 1, 4, db->file);
+  } else {
+    memcpy(db->raw, magic, 4);
+    db->raw_pos += 4;
+  }
 
   // Create & initialise the output stream structure
   struct R_outpstream_st output_stream;
@@ -308,7 +319,6 @@ int read_byte_stream(R_inpstream_t stream) {
 void read_bytes_stream(R_inpstream_t stream, void *dst, int length) {
   dbuf_t *db = (dbuf_t *)stream->data;
   
-  
   while (db->pos + length > db->data_length) {
     // Not enough bytes to satisfy the request. So:
     //  - copy across available bytes
@@ -321,6 +331,23 @@ void read_bytes_stream(R_inpstream_t stream, void *dst, int length) {
     
     db->idx = 1 - db->idx; // switch buffers
     db->pos = 0;           // Reset position
+    
+    if (!db->checked_magic) {
+      db->checked_magic = true;
+      if (db->mode & MODE_RAW) {
+        if (memcmp("LZ4S", db->raw, 4) != 0) {
+          Rf_error("Raw vector is not a lz4 serialized stream");
+        }
+        db->raw_pos += 4;
+      } else {
+        char buf[10];
+        unsigned long nread = fread(buf, 1, 4, db->file);
+        if (nread != 4 || strncmp(buf, "LZ4S", 4) != 0) {
+          Rf_error("File is not a lz4 serialized stream");
+        }
+      }
+    }
+    
     
     // Read 
     //   - buffer length, 
