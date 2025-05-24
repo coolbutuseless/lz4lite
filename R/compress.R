@@ -3,9 +3,16 @@
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #' Compress a raw vector
 #'
-#' @param src raw vector containing data to be compressed.
+#' @param src raw vector to be compressed.
 #'
 #' @return raw vector of compressed data
+#' @examples
+#' src <- as.raw(rep(1L, 10000))
+#' length(src)
+#' enc <- lz4_compress(src)
+#' length(enc)
+#' result <- lz4_decompress(enc)
+#' length(result)
 #' @export
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 lz4_compress <- function(src) {
@@ -15,12 +22,17 @@ lz4_compress <- function(src) {
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#' Decompress a raw vector 
+#' Decompress a raw vector of compressed data 
 #'
-#' The \code{src} vector must be a raw vector created by \code{lz4_compress}
-#'
-#' @param src raw vector of compressed data
+#' @param src raw vector of compressed data created with \code{\link{lz4_compress}()}
 #' @return uncompressed vector
+#' @examples
+#' src <- as.raw(rep(1L, 10000))
+#' length(src)
+#' enc <- lz4_compress(src)
+#' length(enc)
+#' result <- lz4_decompress(enc)
+#' length(result)
 #' @export
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 lz4_decompress <- function(src) {

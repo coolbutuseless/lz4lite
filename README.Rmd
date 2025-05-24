@@ -20,7 +20,7 @@ library(lz4lite)
 
 <!-- badges: start -->
 ![](https://img.shields.io/badge/cool-useless-green.svg)
-[![CRAN](https://www.r-pkg.org/badges/version/yyjsonr)](https://cran.r-project.org/package=yyjsonr)
+[![CRAN](https://www.r-pkg.org/badges/version/lz4lite)](https://cran.r-project.org/package=lz4lite)
 [![R-CMD-check](https://github.com/coolbutuseless/lz4lite/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/coolbutuseless/lz4lite/actions/workflows/R-CMD-check.yaml)
 <!-- badges: end -->
 
@@ -38,61 +38,67 @@ for performing in-memory compression of any R ojbect.
     * `lz4_compress()`/`lz4_decompress()`
 
 
-### Installation
+## Installation
 
-You can install from [GitHub](https://github.com/coolbutuseless/lz4lite) with:
+<!-- This package can be installed from CRAN -->
+
+<!-- ``` r -->
+<!-- install.packages('lz4lite') -->
+<!-- ``` -->
+
+You can install the latest development version from
+[GitHub](https://github.com/coolbutuseless/lz4lite) with:
 
 ``` r
 # install.package('remotes')
-remotes::install_github('coolbutuseless/lz4lite)
+remotes::install_github('coolbutuseless/lz4lite')
 ```
 
-Pre-built source/binary versions can also be installed from [R-universe](https://r-universe.dev)
+Pre-built source/binary versions can also be installed from
+[R-universe](https://r-universe.dev)
 
 ``` r
 install.packages('lz4lite', repos = c('https://coolbutuseless.r-universe.dev', 'https://cloud.r-project.org'))
 ```
 
 
-
 ## Basic usage of lz4lite
 
 ```{r}
-dat <- mtcars
-
-
-buf <- lz4_serialize(dat)
+buf <- lz4_serialize(penguins)
 length(buf) # Number of bytes
 
 # compression ratio
-length(buf)/length(serialize(dat, NULL))
+length(buf)/length(serialize(penguins, NULL))
 
 head(lz4_unserialize(buf))
 ```
 
 
+## Benchmark
+
+```{r}
+dat <- penguins[sample(nrow(penguins), 10000, T), ]
+tmp <- tempfile()
+
+
+res <- bench::mark(
+  lz4lite::lz4_serialize(dat, tmp),
+  saveRDS(dat, tmp, compress = FALSE),
+  saveRDS(dat, tmp, compress = 'gzip'),
+  saveRDS(dat, tmp, compress = 'bzip2'),
+  saveRDS(dat, tmp, compress = 'xz'),
+  check = FALSE
+)
+
+res[, 1:5] |>
+  knitr::kable(caption = "Time to serialize data and write to file")
+
+```
 
 
 
 
-## Technical bits
-
-
-### Framing of the compressed data
-
-* `lz4lite` does **not** use the standard LZ4 frame to store data.
-* The compressed representation is the compressed data prefixed with 
-  a custom 8 byte header consisting of 
-    * 3 bytes = 'LZ4' 
-    * If this was produced with `lz4_serialize()` the next byte is 'S', 
-      otherwise 'C'.
-    * 4-byte length value i.e. the number of bytes in the 
-      original uncompressed data.
-* This data representation 
-    * is not compatible with the standard LZ4 frame 
-      format.
-    * is likely to evolve (so currently do not plan on compressing something in 
-      one version of `lz4lite` and decompressing in another version.)
 
 
 

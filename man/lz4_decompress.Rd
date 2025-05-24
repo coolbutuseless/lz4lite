@@ -2,16 +2,24 @@
 % Please edit documentation in R/compress.R
 \name{lz4_decompress}
 \alias{lz4_decompress}
-\title{Decompress a raw vector}
+\title{Decompress a raw vector of compressed data}
 \usage{
 lz4_decompress(src)
 }
 \arguments{
-\item{src}{raw vector of compressed data}
+\item{src}{raw vector of compressed data created with \code{\link{lz4_compress}()}}
 }
 \value{
 uncompressed vector
 }
 \description{
-The \code{src} vector must be a raw vector created by \code{lz4_compress}
+Decompress a raw vector of compressed data
+}
+\examples{
+src <- as.raw(rep(1L, 10000))
+length(src)
+enc <- lz4_compress(src)
+length(enc)
+result <- lz4_decompress(enc)
+length(result)
 }

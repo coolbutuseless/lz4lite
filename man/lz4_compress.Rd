@@ -7,11 +7,19 @@
 lz4_compress(src)
 }
 \arguments{
-\item{src}{raw vector containing data to be compressed.}
+\item{src}{raw vector to be compressed.}
 }
 \value{
 raw vector of compressed data
 }
 \description{
 Compress a raw vector
+}
+\examples{
+src <- as.raw(rep(1L, 10000))
+length(src)
+enc <- lz4_compress(src)
+length(enc)
+result <- lz4_decompress(enc)
+length(result)
 }
