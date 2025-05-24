@@ -57,7 +57,10 @@ typedef struct {
 //    #   #  #   #  #   #   #  #  #       # #    #  # 
 //     ###    ###   #   #    ##    ###   #   #    ##  
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-void db_destroy(dbuf_t *db) {
+SEXP db_finalize(dbuf_t *db) {
+  
+  int nprotect = 0;
+  SEXP res_ = R_NilValue;
   
   // When serializing, flush the write buffers
   if (db->mode & MODE_SERIALIZE) {
@@ -83,9 +86,9 @@ void db_destroy(dbuf_t *db) {
         db->raw = realloc(db->raw, db->raw_capacity);
       }
       
-      memcpy(db->raw + db->raw_pos, &db->pos, sizeof(uint32_t)); db->raw_pos += sizeof(uint32_t);
-      memcpy(db->raw + db->raw_pos, &comp_len, sizeof(int32_t)); db->raw_pos += sizeof(int32_t);
-      memcpy(db->raw + db->raw_pos, db->comp, comp_len); db->raw_pos += comp_len;
+      memcpy(db->raw + db->raw_pos, &db->pos ,        4); db->raw_pos += 4;
+      memcpy(db->raw + db->raw_pos, &comp_len,        4); db->raw_pos += 4;
+      memcpy(db->raw + db->raw_pos, db->comp , comp_len); db->raw_pos += comp_len;
       
     } else {
       Rf_error("write_bytes_stream(): 000");
@@ -98,6 +101,8 @@ void db_destroy(dbuf_t *db) {
   }
   
   if (db->mode & MODE_RAW && db->mode & MODE_SERIALIZE) {
+    res_ = PROTECT(Rf_allocVector(RAWSXP, db->raw_pos)); nprotect++;
+    memcpy(RAW(res_), db->raw, db->raw_pos);
     free(db->raw);
   }
   
@@ -111,6 +116,9 @@ void db_destroy(dbuf_t *db) {
   
   free(db->comp);
   free(db);
+  
+  UNPROTECT(nprotect);
+  return res_;
 }
 
 
@@ -158,9 +166,9 @@ void write_bytes_stream(R_outpstream_t stream, void *src, int length) {
         db->raw = realloc(db->raw, db->raw_capacity);
       }
       
-      memcpy(db->raw + db->raw_pos, &db->pos, sizeof(uint32_t)); db->raw_pos += sizeof(uint32_t);
-      memcpy(db->raw + db->raw_pos, &comp_len, sizeof(int32_t)); db->raw_pos += sizeof(int32_t);
-      memcpy(db->raw + db->raw_pos, db->comp, comp_len); db->raw_pos += comp_len;
+      memcpy(db->raw + db->raw_pos, &db->pos ,        4); db->raw_pos += 4;
+      memcpy(db->raw + db->raw_pos, &comp_len,        4); db->raw_pos += 4;
+      memcpy(db->raw + db->raw_pos, db->comp , comp_len); db->raw_pos += comp_len;
       
     } else {
       Rf_error("write_bytes_stream(): 000");
@@ -245,9 +253,9 @@ SEXP lz4_serialize_stream_(SEXP x_, SEXP dst_, SEXP acc_) {
   // Serialize the object into the output_stream
   R_Serialize(x_, &output_stream);
 
-  // Flush buffers to output, close
-  db_destroy(db);
-  return R_NilValue;
+  // Flush buffers to output, close.
+  // Return vector if serializing to raw.
+  return db_finalize(db);
 }
 
 
@@ -286,9 +294,22 @@ void read_bytes_stream(R_inpstream_t stream, void *dst, int length) {
     
     // Read buffer length, then read buffer data
     int comp_len;
-    fread(&db->data_length, 1, sizeof(uint32_t), db->file);
-    fread(&comp_len, 1, sizeof(int32_t), db->file);
-    fread(db->comp, 1, comp_len, db->file);
+    
+    if (db->mode & MODE_FILE) {
+      fread(&db->data_length, 1, sizeof(uint32_t), db->file);
+      fread(&comp_len, 1, sizeof(int32_t), db->file);
+      fread(db->comp, 1, comp_len, db->file);
+    } else if (db->mode & MODE_RAW) {
+      memcpy (&db->data_length, db->raw + db->raw_pos,        4); db->raw_pos += 4;
+      memcpy (&comp_len       , db->raw + db->raw_pos,        4); db->raw_pos += 4;
+      memcpy(db->comp         , db->raw + db->raw_pos, comp_len); db->raw_pos += comp_len;
+      
+    } else {
+      Rf_error("Unserialize [000]");  
+    }
+    
+    
+    // Decompress
     int res = LZ4_decompress_safe_continue(
       db->stream_in,             // Stream
       (const char *)db->comp,    // Src compressed buffer
@@ -326,12 +347,17 @@ SEXP lz4_unserialize_stream_(SEXP src_) {
   db->mode = MODE_UNSERIALIZE;
   
   if (TYPEOF(src_) == STRSXP) {
+    db->mode |= MODE_FILE;
     const char *filename = CHAR(STRING_ELT(src_, 0));
     db->file = fopen(filename, "rb");
     if (db->file == NULL) {
       Rf_error("Couldn't open file for input: '%s'", filename);
     }
-    db->mode |= MODE_FILE;
+  } else if (TYPEOF(src_) == RAWSXP) {
+    db->mode |= MODE_RAW;
+    db->raw = RAW(src_);
+    db->raw_pos = 0;
+    db->raw_capacity = (int)Rf_length(src_);
   } else {
     Rf_error("Don't know how to deal with 'src' of type: [%i] %s", 
              TYPEOF(src_), Rf_type2char(TYPEOF(src_)));
@@ -363,7 +389,7 @@ SEXP lz4_unserialize_stream_(SEXP src_) {
   // Unserialize the input_stream into an R object
   SEXP res_  = PROTECT(R_Unserialize(&input_stream));
 
-  db_destroy(db);
+  db_finalize(db);
   UNPROTECT(1);
   return res_;
 }
