@@ -53,14 +53,19 @@ if (FALSE) {
   
   tmp <- tempfile()
   set.seed(1)
-  vec <- mtcars
+  # vec <- mtcars
+  vec <- penguins[sample(nrow(penguins), 10000, T), ]
   lz4_serialize_stream(vec, tmp)
   
-  serialize(vec, NULL)
-  readBin(tmp, raw(), file.size(tmp))
+  # serialize(vec, NULL)
+  # readBin(tmp, raw(), file.size(tmp))
   
   res <- lz4_unserialize_stream(tmp)
   identical(res, vec)
+  
+  
+  
+  
 }
 
 

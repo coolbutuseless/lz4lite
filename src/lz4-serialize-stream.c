@@ -12,10 +12,7 @@
 #include "lz4.h"
 
 
-#define MAGIC_LENGTH 8
-
 #define BUF_SIZE 512 * 1024
-
 #define FMODE_READ  0
 #define FMODE_WRITE 1
 
@@ -30,7 +27,13 @@ typedef struct {
 
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// 
+//     ###                  #                    #    
+//    #   #                 #                    #    
+//    #       ###   # ##   ####    ###   #   #  ####  
+//    #      #   #  ##  #   #     #   #   # #    #    
+//    #      #   #  #   #   #     #####    #     #    
+//    #   #  #   #  #   #   #  #  #       # #    #  # 
+//     ###    ###   #   #    ##    ###   #   #    ##  
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void db_destroy(dbuf_t *db) {
   if (db->file != NULL) {
@@ -48,35 +51,40 @@ void db_destroy(dbuf_t *db) {
 
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// Read/write single byte callbacks aren't used in binary serialisation
+//    #   #           #     #           
+//    #   #                 #           
+//    #   #  # ##    ##    ####    ###  
+//    # # #  ##  #    #     #     #   # 
+//    # # #  #        #     #     ##### 
+//    ## ##  #        #     #  #  #     
+//    #   #  #       ###     ##    ###  
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void write_byte_stream(R_outpstream_t stream, int c) {
   Rf_error("'write_byte_stream()' is never called");
 }
 
 
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// Write multiple bytes into the buffer at the current location.
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void write_bytes_stream(R_outpstream_t stream, void *src, int length) {
   dbuf_t *db = (dbuf_t *)stream->data;
   
-  // uint8_t *p = (uint8_t *)src;
-  // for (int i = 0; i < length; i++) {
-  //   Rprintf("%02x ", p[i]);
-  // }
-  // Rprintf("\n");
-  
+  // If this 'write' would overflow the size of the current buffer, 
+  // then write out the current buffer and switch to the other.
+  // Remember: We need to keep some historical bytes around so that
+  // the lz4 compression has a data reference
   if (db->pos + length > BUF_SIZE) {
-    Rprintf("<<<<<<<<<<<<<<< internal\n");
-    fwrite(&db->pos, 1, sizeof(uint32_t), db->file);
-    fwrite(db->buf[db->idx], 1, db->pos, db->file);
-    db->pos = 0;
-    db->idx = 1 - db->idx;
+    fwrite(&db->pos, 1, sizeof(uint32_t), db->file); // Write length
+    fwrite(db->buf[db->idx], 1, db->pos, db->file);  // Write buffer
+    db->idx = 1 - db->idx; // switch buffers
+    db->pos = 0;           // reset buffer position
   } 
   
+  // This should never happen.  R serialization infrastrucutre seems
+  // to work in chunks of 8k items. This is ~64k for floating point doubles
+  if (db->pos + length > BUF_SIZE) {
+    Rf_error("Out-of-range write %i/%i", length, BUF_SIZE);
+  }
   
-  // Append data
+  // Append data to the current buffer
   memcpy(db->buf[db->idx] + db->pos, src, length);
   db->pos += length;
   
@@ -85,7 +93,13 @@ void write_bytes_stream(R_outpstream_t stream, void *src, int length) {
 
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// Serialize an R object
+//   ###                   #            ##      #                 
+//  #   #                                #                        
+//  #       ###   # ##    ##     ###     #     ##    #####   ###  
+//   ###   #   #  ##  #    #        #    #      #       #   #   # 
+//      #  #####  #        #     ####    #      #      #    ##### 
+//  #   #  #      #        #    #   #    #      #     #     #     
+//   ###    ###   #       ###    ####   ###    ###   #####   ###  
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 SEXP lz4_serialize_stream_(SEXP x_, SEXP dst_) {
   
@@ -107,10 +121,8 @@ SEXP lz4_serialize_stream_(SEXP x_, SEXP dst_) {
   }
   
 
-  // Create the output stream structure
+  // Create & initialise the output stream structure
   struct R_outpstream_st output_stream;
-
-  // Initialise the output stream structure
   R_InitOutPStream(
     &output_stream,          // The stream object which wraps everything
     (R_pstream_data_t) db,   // The actual data
@@ -125,6 +137,7 @@ SEXP lz4_serialize_stream_(SEXP x_, SEXP dst_) {
   // Serialize the object into the output_stream
   R_Serialize(x_, &output_stream);
 
+  // Flush buffers to output, close
   db_destroy(db);
   return R_NilValue;
 }
@@ -132,7 +145,13 @@ SEXP lz4_serialize_stream_(SEXP x_, SEXP dst_) {
 
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// Never called
+//  ####                     # 
+//  #   #                    # 
+//  #   #   ###    ###    ## # 
+//  ####   #   #      #  #  ## 
+//  # #    #####   ####  #   # 
+//  #  #   #      #   #  #  ## 
+//  #   #   ###    ####   ## # 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 int read_byte_stream(R_inpstream_t stream) {
   Rf_error("'read_byte_stream()' is never called");
@@ -140,43 +159,45 @@ int read_byte_stream(R_inpstream_t stream) {
 }
 
 
-
-
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// Read multiple bytes from the serialized stream
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 void read_bytes_stream(R_inpstream_t stream, void *dst, int length) {
   dbuf_t *db = (dbuf_t *)stream->data;
   
-  // Rprintf("\n[00] %i\n", length);
-  if (db->pos + length > db->data_length) {
-    // copy across available bytes
-    // replenish buffer
-    int nbytes = db->data_length - db->pos;
-    // Rprintf("SAT Nbytes: %i\n", nbytes);
+  while (db->pos + length > db->data_length) {
+    // Not enough bytes to satisfy the request. So:
+    //  - copy across available bytes
+    //  - load the next buffer
+    
+    // Copy across available bytes
+    int nbytes = db->data_length - db->pos; // bytes left in current buffer
     memcpy(dst, db->buf[db->idx] + db->pos, nbytes);
     length -= nbytes;
     
-    db->pos = 0;
-    db->idx = 1 - db->idx;
+    
+    db->idx = 1 - db->idx; // swtich buffers
+    db->pos = 0;           // Reset position
+    
+    // Read buffer length, then read buffer data
     fread(&db->data_length, 1, sizeof(uint32_t), db->file);
-    // Rprintf("data_length: %i\n", db->data_length);
     unsigned long nread = fread(db->buf[db->idx], 1, db->data_length, db->file);
     if (nread != db->data_length) {
-      // Rf_error("Read failed: %i/%i", (int)nread, db->data_length);
+      Rf_error("Read failed: %i/%i", (int)nread, db->data_length);
     }
   }
   
   // copy across bytes
   memcpy(dst, db->buf[db->idx] + db->pos, length);
   db->pos += length;
-  
-  // Rprintf("Read outtro: %i\n", db->pos);
 }
 
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// Unpack a raw vector to an R object
+//  #   #                                #            ##      #                 
+//  #   #                                              #                        
+//  #   #  # ##    ###    ###   # ##    ##     ###     #     ##    #####   ###  
+//  #   #  ##  #  #      #   #  ##  #    #        #    #      #       #   #   # 
+//  #   #  #   #   ###   #####  #        #     ####    #      #      #    ##### 
+//  #   #  #   #      #  #      #        #    #   #    #      #     #     #     
+//   ###   #   #  ####    ###   #       ###    ####   ###    ###   #####   ###  
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 SEXP lz4_unserialize_stream_(SEXP src_) {
 
@@ -189,7 +210,7 @@ SEXP lz4_unserialize_stream_(SEXP src_) {
     const char *filename = CHAR(STRING_ELT(src_, 0));
     db->file = fopen(filename, "rb");
     if (db->file == NULL) {
-      Rf_error("Couldn't open file for uboyt: '%s'", filename);
+      Rf_error("Couldn't open file for input: '%s'", filename);
     }
     db->fmode = FMODE_READ;
   } else {
@@ -198,9 +219,8 @@ SEXP lz4_unserialize_stream_(SEXP src_) {
   }
 
 
-  // Treat the data buffer as an input stream
+  // INitialise the input stream structure
   struct R_inpstream_st input_stream;
-
   R_InitInPStream(
     &input_stream,           // Stream object wrapping data buffer
     (R_pstream_data_t) db,  // Actual data buffer
