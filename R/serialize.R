@@ -64,6 +64,13 @@ if (FALSE) {
   identical(res, vec)
   
   
+  tmp <- tempfile()
+  bench::mark(
+    lz4_serialize(vec),
+    lz4_serialize_stream(vec, tmp),
+    check = FALSE
+  )
+  
   
   
 }

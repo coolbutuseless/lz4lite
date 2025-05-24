@@ -23,6 +23,9 @@ typedef struct {
   int idx;
   uint32_t pos;
   uint32_t data_length;
+  LZ4_stream_t       *stream_out;
+  LZ4_streamDecode_t *stream_in;
+  uint8_t *comp;
 } dbuf_t;
 
 
@@ -45,6 +48,15 @@ void db_destroy(dbuf_t *db) {
   } else {
     Rf_error("Unknown output in 'db_flush()");
   }
+  
+  if (db->stream_out != NULL) {
+    LZ4_freeStream(db->stream_out);
+  }
+  
+  if (db->stream_in != NULL) {
+    LZ4_freeStreamDecode(db->stream_in);
+  }
+  
   
   free(db);
 }
@@ -120,6 +132,12 @@ SEXP lz4_serialize_stream_(SEXP x_, SEXP dst_) {
              TYPEOF(dst_), Rf_type2char(TYPEOF(dst_)));
   }
   
+  // Setup LZ4 encoding stream context
+  db->stream_out = LZ4_createStream();
+  db->comp = malloc(LZ4_COMPRESSBOUND(BUF_SIZE));
+  if (db->comp == NULL) {
+    Rf_error("lz4_serialize_stream() couldnt allocate compressed buffer");
+  }
 
   // Create & initialise the output stream structure
   struct R_outpstream_st output_stream;
@@ -217,6 +235,15 @@ SEXP lz4_unserialize_stream_(SEXP src_) {
     Rf_error("Don't know how to deal with 'src' of type: [%i] %s", 
              TYPEOF(src_), Rf_type2char(TYPEOF(src_)));
   }
+  
+  // LZ4 stream handling
+  db->stream_in = LZ4_createStreamDecode();
+  db->comp = malloc(LZ4_COMPRESSBOUND(BUF_SIZE));
+  if (db->comp == NULL) {
+    Rf_error("lz4_unserialize_stream() couldnt allocate compressed buffer");
+  }
+  
+  
 
 
   // INitialise the input stream structure
