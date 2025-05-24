@@ -11,8 +11,8 @@
 #' 
 #' @export
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-lz4_serialize_stream <- function(x, dst = NULL, acc = 1L) {
-  res <- .Call(lz4_serialize_stream_, x, dst, acc)
+lz4_serialize <- function(x, dst = NULL, acc = 1L) {
+  res <- .Call(lz4_serialize_, x, dst, acc)
   if (is.null(dst) || is.raw(dst)) {
     res
   } else {
@@ -22,11 +22,11 @@ lz4_serialize_stream <- function(x, dst = NULL, acc = 1L) {
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#' @rdname lz4_serialize_stream
+#' @rdname lz4_serialize
 #' @export
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-lz4_unserialize_stream <- function(src) {
-  .Call(lz4_unserialize_stream_, src)
+lz4_unserialize <- function(src) {
+  .Call(lz4_unserialize_, src)
 }
 
 
@@ -36,7 +36,7 @@ if (FALSE) {
   set.seed(1)
   # vec <- mtcars
   vec <- penguins[sample(nrow(penguins), 10000, T), ]
-  lz4_serialize_stream(vec, tmp)
+  lz4_serialize(vec, tmp)
   
   serialize(vec, NULL) |> length()
   file.size(tmp)
@@ -44,14 +44,14 @@ if (FALSE) {
   # serialize(vec, NULL) 
   # readBin(tmp, raw(), file.size(tmp))
   
-  res <- lz4_unserialize_stream(tmp)
+  res <- lz4_unserialize(tmp)
   identical(res, vec)
   
   
   tmp <- tempfile()
   bench::mark(
     lz4_serialize(vec),
-    lz4_serialize_stream(vec, tmp),
+    lz4_serialize(vec, tmp),
     check = FALSE
   )
   

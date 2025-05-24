@@ -201,7 +201,7 @@ void write_bytes_stream(R_outpstream_t stream, void *src, int length) {
 //  #   #  #      #        #    #   #    #      #     #     #     
 //   ###    ###   #       ###    ####   ###    ###   #####   ###  
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-SEXP lz4_serialize_stream_(SEXP x_, SEXP dst_, SEXP acc_) {
+SEXP lz4_serialize_(SEXP x_, SEXP dst_, SEXP acc_) {
   
   dbuf_t *db = calloc(1, sizeof(dbuf_t));
   if (db == NULL) {
@@ -234,7 +234,7 @@ SEXP lz4_serialize_stream_(SEXP x_, SEXP dst_, SEXP acc_) {
   db->comp_capacity = LZ4_COMPRESSBOUND(BUF_SIZE);
   db->comp = malloc(db->comp_capacity);
   if (db->comp == NULL) {
-    Rf_error("lz4_serialize_stream() couldnt allocate compressed buffer");
+    Rf_error("lz4_serialize() couldnt allocate compressed buffer");
   }
 
   // Create & initialise the output stream structure
@@ -337,7 +337,7 @@ void read_bytes_stream(R_inpstream_t stream, void *dst, int length) {
 //  #   #  #   #      #  #      #        #    #   #    #      #     #     #     
 //   ###   #   #  ####    ###   #       ###    ####   ###    ###   #####   ###  
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-SEXP lz4_unserialize_stream_(SEXP src_) {
+SEXP lz4_unserialize_(SEXP src_) {
 
   dbuf_t *db = calloc(1, sizeof(dbuf_t));
   if (db == NULL) {
@@ -368,7 +368,7 @@ SEXP lz4_unserialize_stream_(SEXP src_) {
   db->comp_capacity = LZ4_COMPRESSBOUND(BUF_SIZE);
   db->comp = malloc(db->comp_capacity);
   if (db->comp == NULL) {
-    Rf_error("lz4_unserialize_stream() couldnt allocate compressed buffer");
+    Rf_error("lz4_unserialize() couldnt allocate compressed buffer");
   }
   
   
