@@ -12,7 +12,12 @@
 #' @export
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 lz4_serialize_stream <- function(x, dst = NULL, acc = 1L) {
-  .Call(lz4_serialize_stream_, x, dst, acc)
+  res <- .Call(lz4_serialize_stream_, x, dst, acc)
+  if (is.null(dst) || is.raw(dst)) {
+    res
+  } else {
+    invisible()
+  }
 }
 
 
