@@ -16,4 +16,7 @@ LazyData: true
 RoxygenNote: 7.3.2
 Copyright: The included 'lz4' code is Copyright (c) 2011-2023 Yann Collet. See 'COPYRIGHTS' for LICENSE for included code.
 Suggests: 
+    knitr,
+    rmarkdown,
     testthat
+VignetteBuilder: knitr

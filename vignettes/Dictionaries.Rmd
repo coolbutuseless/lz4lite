@@ -1,0 +1,120 @@
+---
+title: "Dictionaries"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Dictionaries}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = FALSE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(lz4lite)
+```
+
+`LZ4` can make use of *dictionaries* to increase the compression 
+for small data e.g. ~2kB.
+
+This is useful when you have many small repeating messages with similar structure
+and content e.g. log messages.
+
+This dictionary can be any raw vector, but original `LZ4` documentation suggests that using
+`zstd` to create this dictionary is the best route.
+
+**Note:** if data is serialized with a dictionary then that same dictionary must
+be presented when unserializing.
+
+## Overview
+
+1. Create a directory of sample messages. One sample per file.
+2. Use `zstd` to create the dictionary
+3. Load this dictionary as a raw vector
+3. Use the dictionary argument when calling `lz4_serialize()` and `lz4_unserialize()`.
+
+
+## Create some data
+
+This is a contrived example mimicking log messages. Each log message has a time
+and an index and some text associated with it.
+
+The following code generates 2000 message samples which will be used to 
+train a dictionary.
+
+```{r eval=FALSE}
+tmp <- "working/samples/"
+dir.create(tmp, showWarnings = FALSE, recursive = TRUE)
+
+
+template <- r"(
+%s %i
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor 
+incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis 
+nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. 
+Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore 
+eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, 
+sunt in culpa qui officia deserunt mollit anim id est laborum
+)"
+
+
+
+for (i in 1:2000) {
+  msg <- sprintf(template, Sys.time(), i)
+  file <- sprintf("%s/%05i.txt", tmp, i)
+  writeLines(msg, file)
+}
+```
+
+## Train a dictionary using `zstd`
+
+Train a 4kB dictionary using `zstd`.  Dictionary size will depende on the type 
+of message.  A size of 64kB is quite common.
+
+```{r eval=FALSE}
+system("zstd --train working/samples/* -o working/test.dict --maxdict=4KB")
+```
+
+## Read the dictionary and use with `lz4_serialize()`/`lz4_unserialize()`
+
+```{r eval=FALSE}
+dict <- readBin("working/test.dict", raw(), file.size("working/test.dict"))
+```
+
+## Test the effect of a dictionary for a new message
+
+When this dictionary is specified to compress a new message, the compressed 
+size is much smaller.
+
+```{r eval = TRUE, echo = FALSE}
+template <- r"(
+%s %i: Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor 
+incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis 
+nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. 
+Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore 
+eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, 
+sunt in culpa qui officia deserunt mollit anim id est laborum
+)"
+
+dict <- readBin("dict/test.dict", raw(), file.size("dict/test.dict"))
+```
+
+
+
+```{r eval = TRUE}
+# Create a new message
+msg <- sprintf(template, Sys.time(), 9999)
+
+# No ditionary
+lz4_serialize(msg) |> length()
+
+# Compress with dictionary
+lz4_serialize(msg, dict = dict) |> length()
+
+
+```
+
