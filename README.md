@@ -44,48 +44,57 @@ install.packages('lz4lite', repos = c('https://coolbutuseless.r-universe.dev', '
 ## Basic usage of lz4lite
 
 ``` r
-dat <- mtcars
-
-
-buf <- lz4_serialize(dat)
+buf <- lz4_serialize(penguins)
 length(buf) # Number of bytes
 ```
 
-    #> [1] 1862
+    #> [1] 4877
 
 ``` r
 # compression ratio
-length(buf)/length(serialize(dat, NULL))
+length(buf)/length(serialize(penguins, NULL))
 ```
 
-    #> [1] 0.489099
+    #> [1] 0.3392696
 
 ``` r
 head(lz4_unserialize(buf))
 ```
 
-    #>                    mpg cyl disp  hp drat    wt  qsec vs am gear carb
-    #> Mazda RX4         21.0   6  160 110 3.90 2.620 16.46  0  1    4    4
-    #> Mazda RX4 Wag     21.0   6  160 110 3.90 2.875 17.02  0  1    4    4
-    #> Datsun 710        22.8   4  108  93 3.85 2.320 18.61  1  1    4    1
-    #> Hornet 4 Drive    21.4   6  258 110 3.08 3.215 19.44  1  0    3    1
-    #> Hornet Sportabout 18.7   8  360 175 3.15 3.440 17.02  0  0    3    2
-    #> Valiant           18.1   6  225 105 2.76 3.460 20.22  1  0    3    1
+    #>   species    island bill_len bill_dep flipper_len body_mass    sex year
+    #> 1  Adelie Torgersen     39.1     18.7         181      3750   male 2007
+    #> 2  Adelie Torgersen     39.5     17.4         186      3800 female 2007
+    #> 3  Adelie Torgersen     40.3     18.0         195      3250 female 2007
+    #> 4  Adelie Torgersen       NA       NA          NA        NA   <NA> 2007
+    #> 5  Adelie Torgersen     36.7     19.3         193      3450 female 2007
+    #> 6  Adelie Torgersen     39.3     20.6         190      3650   male 2007
 
-## Technical bits
+## Benchmark
 
-### Framing of the compressed data
+``` r
+dat <- penguins[sample(nrow(penguins), 10000, T), ]
+tmp <- tempfile()
 
-- `lz4lite` does **not** use the standard LZ4 frame to store data.
-- The compressed representation is the compressed data prefixed with a
-  custom 8 byte header consisting of
-  - 3 bytes = ‘LZ4’
-  - If this was produced with `lz4_serialize()` the next byte is ‘S’,
-    otherwise ‘C’.
-  - 4-byte length value i.e. the number of bytes in the original
-    uncompressed data.
-- This data representation
-  - is not compatible with the standard LZ4 frame format.
-  - is likely to evolve (so currently do not plan on compressing
-    something in one version of `lz4lite` and decompressing in another
-    version.)
+
+res <- bench::mark(
+  lz4lite::lz4_serialize(dat, tmp),
+  saveRDS(dat, tmp, compress = FALSE),
+  saveRDS(dat, tmp, compress = 'gzip'),
+  saveRDS(dat, tmp, compress = 'bzip2'),
+  saveRDS(dat, tmp, compress = 'xz'),
+  check = FALSE
+)
+
+res[, 1:5] |>
+  knitr::kable(caption = "Time to serialize data and write to file")
+```
+
+| expression                            |      min |   median |    itr/sec | mem_alloc |
+|:--------------------------------------|---------:|---------:|-----------:|----------:|
+| lz4lite::lz4_serialize(dat, tmp)      |   1.02ms |   1.08ms | 918.816941 |    8.63KB |
+| saveRDS(dat, tmp, compress = FALSE)   |   1.33ms |   1.49ms | 584.871893 |    8.63KB |
+| saveRDS(dat, tmp, compress = “gzip”)  |  21.85ms |  22.04ms |  45.196769 |    8.63KB |
+| saveRDS(dat, tmp, compress = “bzip2”) |  21.87ms |  22.23ms |  44.775734 |   11.58KB |
+| saveRDS(dat, tmp, compress = “xz”)    | 134.28ms | 135.19ms |   7.378195 |   11.58KB |
+
+Time to serialize data and write to file
