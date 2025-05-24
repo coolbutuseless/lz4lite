@@ -6,7 +6,7 @@
 <!-- badges: start -->
 
 ![](https://img.shields.io/badge/cool-useless-green.svg)
-[![CRAN](https://www.r-pkg.org/badges/version/yyjsonr)](https://cran.r-project.org/package=yyjsonr)
+[![CRAN](https://www.r-pkg.org/badges/version/lz4lite)](https://cran.r-project.org/package=lz4lite)
 [![R-CMD-check](https://github.com/coolbutuseless/lz4lite/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/coolbutuseless/lz4lite/actions/workflows/R-CMD-check.yaml)
 <!-- badges: end -->
 
@@ -24,14 +24,22 @@ of any R ojbect.
 - **For raw vectors**
   - `lz4_compress()`/`lz4_decompress()`
 
-### Installation
+## Installation
 
-You can install from [GitHub](https://github.com/coolbutuseless/lz4lite)
-with:
+<!-- This package can be installed from CRAN -->
+
+<!-- ``` r -->
+
+<!-- install.packages('lz4lite') -->
+
+<!-- ``` -->
+
+You can install the latest development version from
+[GitHub](https://github.com/coolbutuseless/lz4lite) with:
 
 ``` r
 # install.package('remotes')
-remotes::install_github('coolbutuseless/lz4lite)
+remotes::install_github('coolbutuseless/lz4lite')
 ```
 
 Pre-built source/binary versions can also be installed from
@@ -91,10 +99,10 @@ res[, 1:5] |>
 
 | expression                            |      min |   median |    itr/sec | mem_alloc |
 |:--------------------------------------|---------:|---------:|-----------:|----------:|
-| lz4lite::lz4_serialize(dat, tmp)      |   1.02ms |   1.08ms | 918.816941 |    8.63KB |
-| saveRDS(dat, tmp, compress = FALSE)   |   1.33ms |   1.49ms | 584.871893 |    8.63KB |
-| saveRDS(dat, tmp, compress = “gzip”)  |  21.85ms |  22.04ms |  45.196769 |    8.63KB |
-| saveRDS(dat, tmp, compress = “bzip2”) |  21.87ms |  22.23ms |  44.775734 |   11.58KB |
-| saveRDS(dat, tmp, compress = “xz”)    | 134.28ms | 135.19ms |   7.378195 |   11.58KB |
+| lz4lite::lz4_serialize(dat, tmp)      |   1.03ms |   1.11ms | 852.906215 |    8.63KB |
+| saveRDS(dat, tmp, compress = FALSE)   |   1.34ms |   1.56ms | 594.615649 |    8.63KB |
+| saveRDS(dat, tmp, compress = “gzip”)  |  21.79ms |  22.01ms |  45.296677 |    8.63KB |
+| saveRDS(dat, tmp, compress = “bzip2”) |  21.74ms |  22.28ms |  44.668393 |   11.58KB |
+| saveRDS(dat, tmp, compress = “xz”)    | 135.38ms | 137.05ms |   7.311095 |   11.58KB |
 
 Time to serialize data and write to file
