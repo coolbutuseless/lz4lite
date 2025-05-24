@@ -5,7 +5,7 @@
 \alias{lz4_unserialize_stream}
 \title{Serialize to file, raw or connection}
 \usage{
-lz4_serialize_stream(x, dst, acc = 1L)
+lz4_serialize_stream(x, dst = NULL, acc = 1L)
 
 lz4_unserialize_stream(src)
 }

@@ -11,7 +11,7 @@
 #' 
 #' @export
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-lz4_serialize_stream <- function(x, dst, acc = 1L) {
+lz4_serialize_stream <- function(x, dst = NULL, acc = 1L) {
   .Call(lz4_serialize_stream_, x, dst, acc)
 }
 
@@ -49,8 +49,6 @@ if (FALSE) {
     lz4_serialize_stream(vec, tmp),
     check = FALSE
   )
-  
-  
   
 }
 

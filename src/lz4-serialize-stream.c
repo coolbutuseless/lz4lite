@@ -11,8 +11,6 @@
 
 #include "lz4.h"
 
-#define USE_LZ4
-
 
 #define BUF_SIZE 512 * 1024
 #define FMODE_READ  0
@@ -47,7 +45,7 @@ typedef struct {
 void db_destroy(dbuf_t *db) {
   if (db->file != NULL) {
     if (db->fmode == FMODE_WRITE) {
-#ifdef USE_LZ4
+      
       int comp_len = LZ4_compress_fast_continue(
         db->stream_out,                  // Stream
         (const char *)db->buf[db->idx],  // Source Raw Buffer
@@ -60,10 +58,7 @@ void db_destroy(dbuf_t *db) {
       fwrite(&db->pos, 1, sizeof(uint32_t), db->file); // Write raw length
       fwrite(&comp_len, 1, sizeof(int32_t), db->file); // write compressed length
       fwrite(db->comp, 1, comp_len, db->file);  // Write compressed buffer
-#else
-      fwrite(&db->pos, 1, sizeof(uint32_t), db->file);
-      fwrite(db->buf[db->idx], 1, db->pos, db->file);
-#endif
+      
     }
     fclose(db->file);
   } else {
@@ -106,8 +101,6 @@ void write_bytes_stream(R_outpstream_t stream, void *src, int length) {
   // the lz4 compression has a data reference
   if (db->pos + length > BUF_SIZE) {
     
-#ifdef USE_LZ4
-    
     int comp_len = LZ4_compress_fast_continue(
       db->stream_out,                  // Stream
       (const char *)db->buf[db->idx],  // Source Raw Buffer
@@ -121,10 +114,6 @@ void write_bytes_stream(R_outpstream_t stream, void *src, int length) {
     fwrite(&comp_len, 1, sizeof(int32_t), db->file); // write compressed length
     fwrite(db->comp, 1, comp_len, db->file);  // Write compressed buffer
     
-#else
-    fwrite(&db->pos, 1, sizeof(uint32_t), db->file); // Write length
-    fwrite(db->buf[db->idx], 1, db->pos, db->file);  // Write buffer
-#endif
     db->idx = 1 - db->idx; // switch buffers
     db->pos = 0;           // reset buffer position
   } 
@@ -237,7 +226,6 @@ void read_bytes_stream(R_inpstream_t stream, void *dst, int length) {
     db->pos = 0;           // Reset position
     
     // Read buffer length, then read buffer data
-#ifdef USE_LZ4
     int comp_len;
     fread(&db->data_length, 1, sizeof(uint32_t), db->file);
     fread(&comp_len, 1, sizeof(int32_t), db->file);
@@ -252,14 +240,6 @@ void read_bytes_stream(R_inpstream_t stream, void *dst, int length) {
     if (res < 0) {
       Rf_error("Lz4 decompression error %i", res);
     }
-    
-#else
-    fread(&db->data_length, 1, sizeof(uint32_t), db->file);
-    unsigned long nread = fread(db->buf[db->idx], 1, db->data_length, db->file);
-    if (nread != db->data_length) {
-      Rf_error("Read failed: %i/%i", (int)nread, db->data_length);
-    }
-#endif
   }
   
   // copy across bytes
