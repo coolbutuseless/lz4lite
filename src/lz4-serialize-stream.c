@@ -13,23 +13,37 @@
 
 
 #define BUF_SIZE 512 * 1024
+
+// Source / Destination mode
+#define MODE_RAW  0
+#define MODE_FILE 1
+
+// File modes
 #define FMODE_READ  0
 #define FMODE_WRITE 1
 
 typedef struct {
+  // For file output
   FILE *file;
   int fmode;
+  
+  // For raw vector output
+  uint8_t *raw;
+  int raw_capacity;
+  int raw_pos;
+  
+  // Double bufferes
   uint8_t buf[2][BUF_SIZE];
-  int idx;
-  uint32_t pos;
-  uint32_t data_length;
+  int idx;              // which buffer is active
+  uint32_t pos;         // position within active buffer
+  uint32_t data_length; // total data length in active buffer (for reading)
   
-  LZ4_stream_t       *stream_out;
-  LZ4_streamDecode_t *stream_in;
-  int acceleration;
-  
-  uint8_t *comp;
-  int comp_capacity;
+  // For LZ4
+  LZ4_stream_t       *stream_out;  // compression
+  LZ4_streamDecode_t *stream_in;   // decompression
+  int acceleration;                // range [1, 65535]
+  uint8_t *comp;                   // compressed buffer
+  int comp_capacity;               // capacity of compressed buffer
 } dbuf_t;
 
 
