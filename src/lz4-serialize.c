@@ -356,9 +356,12 @@ void read_bytes_stream(R_inpstream_t stream, void *dst, int length) {
     int comp_len;
     
     if (db->mode & MODE_FILE) {
-      fread(&db->data_length, 1, sizeof(uint32_t), db->file);
-      fread(&comp_len, 1, sizeof(int32_t), db->file);
-      fread(db->comp, 1, comp_len, db->file);
+      unsigned long nread = fread(&db->data_length, 1, sizeof(uint32_t), db->file);
+      if (nread != 4) Rf_error("Error reading 4 byte data length");
+      nread = fread(&comp_len, 1, sizeof(int32_t), db->file);
+      if (nread != 4) Rf_error("Error reading 4 byte compressed length");
+      nread = fread(db->comp, 1, comp_len, db->file);
+      if (nread != comp_len) Rf_error("Error reading compressed data of length %i", (int)nread);
     } else if (db->mode & MODE_RAW) {
       memcpy (&db->data_length, db->raw + db->raw_pos,        4); db->raw_pos += 4;
       memcpy (&comp_len       , db->raw + db->raw_pos,        4); db->raw_pos += 4;
