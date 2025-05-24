@@ -22,6 +22,8 @@
 #define MODE_UNSERIALIZE   8
 #define MODE_SERIALIZE    16                                           
 
+
+
 typedef struct {
   int mode;
   
@@ -48,6 +50,44 @@ typedef struct {
 } dbuf_t;
 
 
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Compress the current buffer and output
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+void write_compressed_buf(dbuf_t *db) {
+  int comp_len = LZ4_compress_fast_continue(
+    db->stream_out,                  // Stream
+    (const char *)db->buf[db->idx],  // Source Raw Buffer
+                         (char *)db->comp,                // Dest Compressed buffer
+                         db->pos,                         // Source size
+                         db->comp_capacity,               // dstCapacity
+                         db->acceleration
+  );
+  if (comp_len < 0) Rf_error("Error compression lz4");
+  
+  if (db->mode & MODE_FILE) {
+    fwrite(&db->pos, 1, sizeof(uint32_t), db->file); // Write raw length
+    fwrite(&comp_len, 1, sizeof(int32_t), db->file); // write compressed length
+    fwrite(db->comp, 1, comp_len, db->file);  // Write compressed buffer
+  } else if (db->mode & MODE_RAW) {
+    
+    if (db->raw_pos + 2 * sizeof(uint32_t) + comp_len >= db->raw_capacity) {
+      db->raw_capacity *= 2;
+      db->raw = realloc(db->raw, db->raw_capacity);
+    }
+    
+    memcpy(db->raw + db->raw_pos, &db->pos ,        4); db->raw_pos += 4;
+    memcpy(db->raw + db->raw_pos, &comp_len,        4); db->raw_pos += 4;
+    memcpy(db->raw + db->raw_pos, db->comp , comp_len); db->raw_pos += comp_len;
+    
+  } else {
+    Rf_error("write_compressed_buf(): unknown mode");
+  }    
+}
+
+
+
+
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 //     ###                  #                    #    
 //    #   #                 #                    #    
@@ -57,63 +97,56 @@ typedef struct {
 //    #   #  #   #  #   #   #  #  #       # #    #  # 
 //     ###    ###   #   #    ##    ###   #   #    ##  
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// Finalise the context after serializing/unserializing
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 SEXP db_finalize(dbuf_t *db) {
   
   int nprotect = 0;
   SEXP res_ = R_NilValue;
   
-  // When serializing, flush the write buffers
+  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  // Flush any contents of the write buffers
+  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   if (db->mode & MODE_SERIALIZE) {
-    
-    int comp_len = LZ4_compress_fast_continue(
-      db->stream_out,                  // Stream
-      (const char *)db->buf[db->idx],  // Source Raw Buffer
-                           (char *)db->comp,                // Dest Compressed buffer
-                           db->pos,                  // Source size
-                           db->comp_capacity,        // dstCapacity
-                           db->acceleration
-    );
-    if (comp_len < 0) Rf_error("Error compression lz4");
-    
-    if (db->mode & MODE_FILE) {
-      fwrite(&db->pos, 1, sizeof(uint32_t), db->file); // Write raw length
-      fwrite(&comp_len, 1, sizeof(int32_t), db->file); // write compressed length
-      fwrite(db->comp, 1, comp_len, db->file);  // Write compressed buffer
-    } else if (db->mode & MODE_RAW) {
-      
-      if (db->raw_pos + 2 * sizeof(uint32_t) + comp_len >= db->raw_capacity) {
-        db->raw_capacity *= 2;
-        db->raw = realloc(db->raw, db->raw_capacity);
-      }
-      
-      memcpy(db->raw + db->raw_pos, &db->pos ,        4); db->raw_pos += 4;
-      memcpy(db->raw + db->raw_pos, &comp_len,        4); db->raw_pos += 4;
-      memcpy(db->raw + db->raw_pos, db->comp , comp_len); db->raw_pos += comp_len;
-      
-    } else {
-      Rf_error("write_bytes_stream(): 000");
-    }    
-    
+    write_compressed_buf(db);
   }
   
-  if (db->mode & MODE_FILE && db->mode & MODE_SERIALIZE) {
+  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  // Close the file
+  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  if (db->mode & MODE_FILE) {
     fclose(db->file);
   }
   
+  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  // When serializzing to raw, create an R raw vector and then free the
+  // allocated memory in C
+  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   if (db->mode & MODE_RAW && db->mode & MODE_SERIALIZE) {
     res_ = PROTECT(Rf_allocVector(RAWSXP, db->raw_pos)); nprotect++;
     memcpy(RAW(res_), db->raw, db->raw_pos);
     free(db->raw);
   }
   
+  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  // Free the LZ4 encoding stream
+  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   if (db->mode & MODE_SERIALIZE) {
     LZ4_freeStream(db->stream_out);
   }
   
+  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  // Free the LZ4 decoding stream
+  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   if (db->mode & MODE_UNSERIALIZE) {
     LZ4_freeStreamDecode(db->stream_in);
   }
   
+  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  // Both serialize and unserialize use the same comrpession buffer. Free it.
+  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   free(db->comp);
   free(db);
   
@@ -139,55 +172,29 @@ void write_byte_stream(R_outpstream_t stream, int c) {
 void write_bytes_stream(R_outpstream_t stream, void *src, int length) {
   dbuf_t *db = (dbuf_t *)stream->data;
   
+  
   // If this 'write' would overflow the size of the current buffer, 
   // then write out the current buffer and switch to the other.
-  // Remember: We need to keep some historical bytes around so that
-  // the lz4 compression has a data reference
-  if (db->pos + length > BUF_SIZE) {
-    
-    int comp_len = LZ4_compress_fast_continue(
-      db->stream_out,                  // Stream
-      (const char *)db->buf[db->idx],  // Source Raw Buffer
-      (char *)db->comp,                // Dest Compressed buffer
-      db->pos,                         // Source size
-      db->comp_capacity,               // dstCapacity
-      db->acceleration                 // acceleration
-    );
-    if (comp_len < 0) Rf_error("Error compression lz4");
-    
-    if (db->mode & MODE_FILE) {
-      fwrite(&db->pos, 1, sizeof(uint32_t), db->file); // Write raw length
-      fwrite(&comp_len, 1, sizeof(int32_t), db->file); // write compressed length
-      fwrite(db->comp, 1, comp_len, db->file);  // Write compressed buffer
-    } else if (db->mode & MODE_RAW) {
-      
-      if (db->raw_pos + 2 * sizeof(uint32_t) + comp_len >= db->raw_capacity) {
-        db->raw_capacity *= 2;
-        db->raw = realloc(db->raw, db->raw_capacity);
-      }
-      
-      memcpy(db->raw + db->raw_pos, &db->pos ,        4); db->raw_pos += 4;
-      memcpy(db->raw + db->raw_pos, &comp_len,        4); db->raw_pos += 4;
-      memcpy(db->raw + db->raw_pos, db->comp , comp_len); db->raw_pos += comp_len;
-      
-    } else {
-      Rf_error("write_bytes_stream(): 000");
-    }
-    
-    db->idx = 1 - db->idx; // switch buffers
-    db->pos = 0;           // reset buffer position
+  // Remember: We need to keep these historical bytes around so that
+  // the lz4 compression has a data reference of 64kB
+  if (db->pos + length >= BUF_SIZE) {
+    write_compressed_buf(db); // compress and write the current buffer
+    db->idx = 1 - db->idx;    // switch buffers
+    db->pos = 0;              // reset buffer position
   } 
+  
   
   // This should never happen.  R serialization infrastrucutre seems
   // to work in chunks of 8k items. This is ~64k for floating point doubles
-  if (db->pos + length > BUF_SIZE) {
+  // and should never exceed BUF_SIZE
+  if (db->pos + length >= BUF_SIZE) {
     Rf_error("Out-of-range write %i/%i", length, BUF_SIZE);
   }
+  
   
   // Append data to the current buffer
   memcpy(db->buf[db->idx] + db->pos, src, length);
   db->pos += length;
-  
 }
 
 
@@ -203,14 +210,23 @@ void write_bytes_stream(R_outpstream_t stream, void *src, int length) {
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 SEXP lz4_serialize_(SEXP x_, SEXP dst_, SEXP acc_, SEXP dict_) {
   
+  // Allocate the double-buffer context
   dbuf_t *db = calloc(1, sizeof(dbuf_t));
   if (db == NULL) {
     Rf_error("Couldn't allocate double buffer");
   }
   
+  
+  // Set the user option for 'acceleration'
   db->acceleration = Rf_asInteger(acc_);
   db->mode = MODE_SERIALIZE;
   
+  
+  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  // Set up the destination:
+  //   - character   => output to file
+  //   - NULL or raw => output to a raw vector
+  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   if (TYPEOF(dst_) == STRSXP) {
     db->mode |= MODE_FILE;
     const char *filename = CHAR(STRING_ELT(dst_, 0));
@@ -220,22 +236,24 @@ SEXP lz4_serialize_(SEXP x_, SEXP dst_, SEXP acc_, SEXP dict_) {
     }
   } else if (Rf_isNull(dst_) || TYPEOF(dst_) == RAWSXP) {
     db->mode |= MODE_RAW;
-    db->raw = malloc(BUF_SIZE);
-    if (db->raw == NULL) Rf_error("Couldn't initialize raw buffer");
-    db->raw_pos = 0;
+    db->raw_pos      = 0;
     db->raw_capacity = BUF_SIZE;
+    db->raw          = malloc(BUF_SIZE);
+    if (db->raw == NULL) Rf_error("Couldn't initialize raw buffer");
   } else {
     Rf_error("Don't know how to deal with 'dst' of type: [%i] %s", 
              TYPEOF(dst_), Rf_type2char(TYPEOF(dst_)));
   }
   
+  
   // Setup LZ4 encoding stream context
-  db->stream_out = LZ4_createStream();
+  db->stream_out    = LZ4_createStream();
   db->comp_capacity = LZ4_COMPRESSBOUND(BUF_SIZE);
-  db->comp = malloc(db->comp_capacity);
+  db->comp          = malloc(db->comp_capacity);
   if (db->comp == NULL) {
     Rf_error("lz4_serialize() couldnt allocate compressed buffer");
   }
+  
   
   // Dictionary
   if (TYPEOF(dict_) == RAWSXP) {
@@ -261,6 +279,7 @@ SEXP lz4_serialize_(SEXP x_, SEXP dst_, SEXP acc_, SEXP dict_) {
     R_NilValue               // Data related to reference data handling
   );
 
+  
   // Serialize the object into the output_stream
   R_Serialize(x_, &output_stream);
 
@@ -289,6 +308,7 @@ int read_byte_stream(R_inpstream_t stream) {
 void read_bytes_stream(R_inpstream_t stream, void *dst, int length) {
   dbuf_t *db = (dbuf_t *)stream->data;
   
+  
   while (db->pos + length > db->data_length) {
     // Not enough bytes to satisfy the request. So:
     //  - copy across available bytes
@@ -299,11 +319,13 @@ void read_bytes_stream(R_inpstream_t stream, void *dst, int length) {
     memcpy(dst, db->buf[db->idx] + db->pos, nbytes);
     length -= nbytes;
     
-    
-    db->idx = 1 - db->idx; // swtich buffers
+    db->idx = 1 - db->idx; // switch buffers
     db->pos = 0;           // Reset position
     
-    // Read buffer length, then read buffer data
+    // Read 
+    //   - buffer length, 
+    //   - compressed length
+    //   - compressed data
     int comp_len;
     
     if (db->mode & MODE_FILE) {
@@ -319,7 +341,6 @@ void read_bytes_stream(R_inpstream_t stream, void *dst, int length) {
       Rf_error("Unserialize [000]");  
     }
     
-    
     // Decompress
     int res = LZ4_decompress_safe_continue(
       db->stream_in,             // Stream
@@ -332,6 +353,7 @@ void read_bytes_stream(R_inpstream_t stream, void *dst, int length) {
       Rf_error("Lz4 decompression error %i", res);
     }
   }
+  
   
   // copy across bytes
   memcpy(dst, db->buf[db->idx] + db->pos, length);
@@ -350,6 +372,7 @@ void read_bytes_stream(R_inpstream_t stream, void *dst, int length) {
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 SEXP lz4_unserialize_(SEXP src_, SEXP dict_) {
 
+  // Allocate double-buffer context
   dbuf_t *db = calloc(1, sizeof(dbuf_t));
   if (db == NULL) {
     Rf_error("Couldn't allocate double buffer");
@@ -357,6 +380,8 @@ SEXP lz4_unserialize_(SEXP src_, SEXP dict_) {
   
   db->mode = MODE_UNSERIALIZE;
   
+  
+  // Set input type to be raw vector or a filename
   if (TYPEOF(src_) == STRSXP) {
     db->mode |= MODE_FILE;
     const char *filename = CHAR(STRING_ELT(src_, 0));
@@ -366,21 +391,23 @@ SEXP lz4_unserialize_(SEXP src_, SEXP dict_) {
     }
   } else if (TYPEOF(src_) == RAWSXP) {
     db->mode |= MODE_RAW;
-    db->raw = RAW(src_);
-    db->raw_pos = 0;
+    db->raw          = RAW(src_);
+    db->raw_pos      = 0;
     db->raw_capacity = (int)Rf_length(src_);
   } else {
     Rf_error("Don't know how to deal with 'src' of type: [%i] %s", 
              TYPEOF(src_), Rf_type2char(TYPEOF(src_)));
   }
   
+  
   // LZ4 stream handling
-  db->stream_in = LZ4_createStreamDecode();
+  db->stream_in     = LZ4_createStreamDecode();
   db->comp_capacity = LZ4_COMPRESSBOUND(BUF_SIZE);
-  db->comp = malloc(db->comp_capacity);
+  db->comp          = malloc(db->comp_capacity);
   if (db->comp == NULL) {
     Rf_error("lz4_unserialize() couldnt allocate compressed buffer");
   }
+  
   
   // Dictionary
   if (TYPEOF(dict_) == RAWSXP) {
@@ -392,7 +419,6 @@ SEXP lz4_unserialize_(SEXP src_, SEXP dict_) {
     Rf_error("Dictionary must be raw() vector or NULL");
   }
   
-
 
   // INitialise the input stream structure
   struct R_inpstream_st input_stream;
@@ -406,6 +432,7 @@ SEXP lz4_unserialize_(SEXP src_, SEXP dict_) {
     NULL                     // Data related to reference data handling
   );
 
+  
   // Unserialize the input_stream into an R object
   SEXP res_  = PROTECT(R_Unserialize(&input_stream));
 
