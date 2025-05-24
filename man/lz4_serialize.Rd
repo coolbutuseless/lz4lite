@@ -17,7 +17,8 @@ lz4_unserialize(src, dict = NULL)
 \item{acc}{accerlation. Default 1. Valid range [1, 65535].  Higher values
 means faster compression, but larger compressed size.}
 
-\item{dict}{dictionary. raw vector. NULL for no dictionary.}
+\item{dict}{dictionary. raw vector. NULL for no dictionary.
+create \code{zstd --train dirSamples/* -o dictName --maxdict=64KB}}
 
 \item{src}{data source for unserialization. file, or raw_vector()}
 }

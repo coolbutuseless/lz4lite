@@ -5,3 +5,4 @@
 ^working$
 ^\.github$
 ^LICENSE\.md$
+^data-raw$

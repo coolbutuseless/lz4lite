@@ -236,6 +236,17 @@ SEXP lz4_serialize_(SEXP x_, SEXP dst_, SEXP acc_, SEXP dict_) {
   if (db->comp == NULL) {
     Rf_error("lz4_serialize() couldnt allocate compressed buffer");
   }
+  
+  // Dictionary
+  if (TYPEOF(dict_) == RAWSXP) {
+    int res = LZ4_loadDict(db->stream_out, (const char *)RAW(dict_), (int)Rf_length(dict_));
+    if (res <= 0) {
+      Rf_error("Error loading dictionary");
+    }
+  } else if (!Rf_isNull(dict_)) {
+    Rf_error("Dictionary must be raw() vector or NULL");
+  }
+  
 
   // Create & initialise the output stream structure
   struct R_outpstream_st output_stream;
@@ -371,6 +382,15 @@ SEXP lz4_unserialize_(SEXP src_, SEXP dict_) {
     Rf_error("lz4_unserialize() couldnt allocate compressed buffer");
   }
   
+  // Dictionary
+  if (TYPEOF(dict_) == RAWSXP) {
+    int res = LZ4_setStreamDecode(db->stream_in, (const char *)RAW(dict_), (int)Rf_length(dict_));
+    if (res <= 0) {
+      Rf_error("Error loading dictionary");
+    }
+  } else if (!Rf_isNull(dict_)) {
+    Rf_error("Dictionary must be raw() vector or NULL");
+  }
   
 
 

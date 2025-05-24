@@ -8,6 +8,7 @@
 #' @param acc accerlation. Default 1. Valid range [1, 65535].  Higher values
 #'        means faster compression, but larger compressed size.
 #' @param dict dictionary. raw vector. NULL for no dictionary.
+#'        create \code{zstd --train dirSamples/* -o dictName --maxdict=64KB}
 #' @param x R object
 #' 
 #' @export
