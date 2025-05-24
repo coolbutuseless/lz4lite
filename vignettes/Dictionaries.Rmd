@@ -30,6 +30,9 @@ This dictionary can be any raw vector, but original `LZ4` documentation suggests
 **Note:** if data is serialized with a dictionary then that same dictionary must
 be presented when unserializing.
 
+This vignette demonstrates the creation of samples needed to train a dictionary.
+
+
 ## Overview
 
 1. Create a directory of sample messages. One sample per file.
@@ -114,7 +117,5 @@ lz4_serialize(msg) |> length()
 
 # Compress with dictionary
 lz4_serialize(msg, dict = dict) |> length()
-
-
 ```
 

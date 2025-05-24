@@ -25,6 +25,15 @@ create \code{zstd --train dirSamples/* -o dictName --maxdict=64KB}}
 
 \item{src}{data source for unserialization. May be a file name, or raw vector}
 }
+\value{
+If \code{dst} is a file, then no value is returned. Otherwise returns
+        a raw vector.
+}
 \description{
 Serialize an R object to a file or raw vector
+}
+\examples{
+raw_vec <- lz4_serialize(mtcars)
+head(raw_vec)
+lz4_unserialize(raw_vec)
 }

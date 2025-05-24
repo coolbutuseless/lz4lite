@@ -13,7 +13,12 @@
 #'        mean faster compression, but larger compressed size.
 #' @param dict Dictionary to aid in compression. raw vector. NULL for no dictionary.
 #'        create \code{zstd --train dirSamples/* -o dictName --maxdict=64KB}
-#' 
+#' @return If \code{dst} is a file, then no value is returned. Otherwise returns
+#'         a raw vector.
+#' @examples
+#' raw_vec <- lz4_serialize(mtcars)
+#' head(raw_vec)
+#' lz4_unserialize(raw_vec)
 #' @export
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 lz4_serialize <- function(x, dst = NULL, acc = 1L, dict = NULL) {
